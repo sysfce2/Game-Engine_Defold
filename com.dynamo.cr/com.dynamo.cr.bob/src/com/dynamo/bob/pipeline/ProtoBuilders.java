@@ -51,6 +51,7 @@ import com.dynamo.input.proto.Input.InputBinding;
 import com.dynamo.particle.proto.Particle.Emitter;
 import com.dynamo.particle.proto.Particle.Modifier;
 import com.dynamo.particle.proto.Particle.ParticleFX;
+import com.dynamo.render.proto.Material.ComputeMaterialDesc;
 import com.dynamo.render.proto.Material.MaterialDesc;
 import com.dynamo.render.proto.Render.RenderPrototypeDesc;
 import com.dynamo.render.proto.Render.DisplayProfiles;
@@ -202,7 +203,21 @@ public class ProtoBuilders {
             List<RenderPrototypeDesc.MaterialDesc> newMaterialList = new ArrayList<RenderPrototypeDesc.MaterialDesc>();
             for (RenderPrototypeDesc.MaterialDesc m : messageBuilder.getMaterialsList()) {
                 BuilderUtil.checkResource(this.project, resource, "material", m.getMaterial());
-                newMaterialList.add(RenderPrototypeDesc.MaterialDesc.newBuilder().mergeFrom(m).setMaterial(BuilderUtil.replaceExt(m.getMaterial(), ".material", ".materialc")).build());
+
+                RenderPrototypeDesc.MaterialDesc.newBuilder();
+                String materialRes = m.getMaterial();
+
+                if (materialRes.endsWith(".compute_material")) {
+                    System.out.println("JG: " + materialRes);
+                    newMaterialList.add(RenderPrototypeDesc.MaterialDesc.newBuilder()
+                        .mergeFrom(m)
+                        .setMaterial(BuilderUtil.replaceExt(materialRes, ".compute_material", ".compute_materialc")).build());
+
+                } else {
+                    newMaterialList.add(RenderPrototypeDesc.MaterialDesc.newBuilder()
+                        .mergeFrom(m)
+                        .setMaterial(BuilderUtil.replaceExt(materialRes, ".material", ".materialc")).build());
+                }
             }
             messageBuilder.clearMaterials();
             messageBuilder.addAllMaterials(newMaterialList);
@@ -301,6 +316,18 @@ public class ProtoBuilders {
             messageBuilder.setVertexProgram(BuilderUtil.replaceExt(messageBuilder.getVertexProgram(), ".vp", ".vpc"));
             BuilderUtil.checkResource(this.project, resource, "fragment program", messageBuilder.getFragmentProgram());
             messageBuilder.setFragmentProgram(BuilderUtil.replaceExt(messageBuilder.getFragmentProgram(), ".fp", ".fpc"));
+            return messageBuilder;
+        }
+    }
+
+    @ProtoParams(srcClass = ComputeMaterialDesc.class, messageClass = ComputeMaterialDesc.class)
+    @BuilderParams(name="ComputeMaterial", inExts=".compute_material", outExt=".compute_materialc")
+    public static class ComputeMaterialBuilder extends ProtoBuilder<ComputeMaterialDesc.Builder> {
+        @Override
+        protected ComputeMaterialDesc.Builder transform(Task<Void> task, IResource resource, ComputeMaterialDesc.Builder messageBuilder)
+                throws IOException, CompileExceptionError {
+            BuilderUtil.checkResource(this.project, resource, "compute program", messageBuilder.getProgram());
+            messageBuilder.setProgram(BuilderUtil.replaceExt(messageBuilder.getProgram(), ".compute", ".computec"));
             return messageBuilder;
         }
     }

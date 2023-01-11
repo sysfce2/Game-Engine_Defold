@@ -775,13 +775,31 @@ namespace dmRender
         return Draw(context, predicate, constant_buffer);
     }
 
+    Result DispatchCompute(HRenderContext render_context)
+    {
+        if (render_context == 0x0)
+            return RESULT_INVALID_CONTEXT;
+
+        dmGraphics::HContext context = dmRender::GetGraphicsContext(render_context);
+        HMaterial context_material = render_context->m_Material;
+
+        if (!context_material)
+        {
+            return RESULT_INVALID_PARAMETER;
+        }
+
+        dmGraphics::EnableProgram(context, GetMaterialProgram(context_material));
+        dmGraphics::DispatchCompute(context);
+
+        return RESULT_OK;
+    }
+
     // NOTE: Currently only used externally in 1 test (fontview.cpp)
     // TODO: Replace that occurrance with DrawRenderList
     Result Draw(HRenderContext render_context, HPredicate predicate, HNamedConstantBuffer constant_buffer)
     {
         if (render_context == 0x0)
             return RESULT_INVALID_CONTEXT;
-
 
         dmGraphics::HContext context = dmRender::GetGraphicsContext(render_context);
 

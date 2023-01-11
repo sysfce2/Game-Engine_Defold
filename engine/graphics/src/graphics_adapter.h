@@ -102,8 +102,11 @@ namespace dmGraphics
     typedef void (*HashVertexDeclarationFn)(HashState32* state, HVertexDeclaration vertex_declaration);
     typedef void (*DrawElementsFn)(HContext context, PrimitiveType prim_type, uint32_t first, uint32_t count, Type type, HIndexBuffer index_buffer);
     typedef void (*DrawFn)(HContext context, PrimitiveType prim_type, uint32_t first, uint32_t count);
+    typedef void (*DispatchComputeFn)(HContext context);
     typedef HVertexProgram (*NewVertexProgramFn)(HContext context, ShaderDesc::Shader* ddf);
     typedef HFragmentProgram (*NewFragmentProgramFn)(HContext context, ShaderDesc::Shader* ddf);
+    typedef HComputeProgram (*NewComputeProgramFn)(HContext context, ShaderDesc::Shader* ddf);
+    typedef HProgram (*NewComputeProgramNeedsNewNameFn)(HContext context, HComputeProgram compute_program);
     typedef HProgram (*NewProgramFn)(HContext context, HVertexProgram vertex_program, HFragmentProgram fragment_program);
     typedef void (*DeleteProgramFn)(HContext context, HProgram program);
     typedef bool (*ReloadVertexProgramFn)(HVertexProgram prog, ShaderDesc::Shader* ddf);
@@ -214,8 +217,11 @@ namespace dmGraphics
         HashVertexDeclarationFn m_HashVertexDeclaration;
         DrawElementsFn m_DrawElements;
         DrawFn m_Draw;
+        DispatchComputeFn m_DispatchCompute;
         NewVertexProgramFn m_NewVertexProgram;
         NewFragmentProgramFn m_NewFragmentProgram;
+        NewComputeProgramFn m_NewComputeProgram;
+        NewComputeProgramNeedsNewNameFn m_NewProgramNeedsNewName;
         NewProgramFn m_NewProgram;
         DeleteProgramFn m_DeleteProgram;
         ReloadVertexProgramFn m_ReloadVertexProgram;

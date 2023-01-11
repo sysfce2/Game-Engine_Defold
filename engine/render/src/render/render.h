@@ -138,6 +138,7 @@ namespace dmRender
     Result Draw(HRenderContext context, HPredicate predicate, HNamedConstantBuffer constant_buffer);
     Result DrawDebug3d(HRenderContext context, const dmVMath::Matrix4* frustum_matrix);
     Result DrawDebug2d(HRenderContext context);
+    Result DispatchCompute(HRenderContext render_context);
 
     /**
      * Render debug square. The upper left corner of the screen is (-1,-1) and the bottom right is (1,1).
@@ -194,6 +195,10 @@ namespace dmRender
     RenderScriptResult      DispatchRenderScriptInstance(HRenderScriptInstance render_script_instance);
     RenderScriptResult      UpdateRenderScriptInstance(HRenderScriptInstance render_script_instance, float dt);
     void                    OnReloadRenderScriptInstance(HRenderScriptInstance render_script_instance);
+
+    // Compute material
+    HMaterial            NewComputeMaterial(dmRender::HRenderContext render_context, dmGraphics::HComputeProgram compute_program);
+    dmGraphics::HProgram GetComputeMaterialProgram(HMaterial material);
 
     // Material
     HMaterial                       NewMaterial(dmRender::HRenderContext render_context, dmGraphics::HVertexProgram vertex_program, dmGraphics::HFragmentProgram fragment_program);

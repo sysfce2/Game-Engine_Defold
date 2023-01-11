@@ -29,7 +29,7 @@ namespace dmRender
 
     HMaterial NewMaterial(dmRender::HRenderContext render_context, dmGraphics::HVertexProgram vertex_program, dmGraphics::HFragmentProgram fragment_program)
     {
-        Material* m = new Material;
+        GraphicsMaterial* m = new GraphicsMaterial;
         m->m_RenderContext = render_context;
         m->m_VertexProgram = vertex_program;
         m->m_FragmentProgram = fragment_program;
@@ -171,24 +171,25 @@ namespace dmRender
 
         delete[] default_values;
 
-        return (HMaterial)m;
+        return (HMaterial) new Material(m);
     }
 
     void DeleteMaterial(dmRender::HRenderContext render_context, HMaterial material)
     {
         dmGraphics::HContext graphics_context = dmRender::GetGraphicsContext(render_context);
-        dmGraphics::DeleteProgram(graphics_context, material->m_Program);
+        dmGraphics::DeleteProgram(graphics_context, material->m_GraphicsMaterial->m_Program);
 
-        for (uint32_t i = 0; i < material->m_Constants.Size(); ++i)
+        for (uint32_t i = 0; i < material->m_GraphicsMaterial->m_Constants.Size(); ++i)
         {
-            dmRender::DeleteConstant(material->m_Constants[i].m_Constant);
+            dmRender::DeleteConstant(material->m_GraphicsMaterial->m_Constants[i].m_Constant);
         }
+        delete material->m_GraphicsMaterial;
         delete material;
     }
 
     void ApplyMaterialConstants(dmRender::HRenderContext render_context, HMaterial material, const RenderObject* ro)
     {
-        const dmArray<MaterialConstant>& constants = material->m_Constants;
+        const dmArray<MaterialConstant>& constants = material->m_GraphicsMaterial->m_Constants;
         dmGraphics::HContext graphics_context = dmRender::GetGraphicsContext(render_context);
         uint32_t n = constants.Size();
         for (uint32_t i = 0; i < n; ++i)
@@ -308,7 +309,7 @@ namespace dmRender
     void ApplyMaterialSampler(dmRender::HRenderContext render_context, HMaterial material, uint32_t unit, dmGraphics::HTexture texture)
     {
         dmGraphics::HContext graphics_context = dmRender::GetGraphicsContext(render_context);
-        dmArray<Sampler>& samplers = material->m_Samplers;
+        dmArray<Sampler>& samplers = material->m_GraphicsMaterial->m_Samplers;
         uint32_t n = samplers.Size();
 
         if (unit < n)
@@ -331,22 +332,22 @@ namespace dmRender
 
     dmGraphics::HProgram GetMaterialProgram(HMaterial material)
     {
-        return material->m_Program;
+        return material->m_GraphicsMaterial->m_Program;
     }
 
     dmGraphics::HVertexProgram GetMaterialVertexProgram(HMaterial material)
     {
-        return material->m_VertexProgram;
+        return material->m_GraphicsMaterial->m_VertexProgram;
     }
 
     dmGraphics::HFragmentProgram GetMaterialFragmentProgram(HMaterial material)
     {
-        return material->m_FragmentProgram;
+        return material->m_GraphicsMaterial->m_FragmentProgram;
     }
 
     static inline int32_t FindMaterialConstantIndex(HMaterial material, dmhash_t name_hash)
     {
-        dmArray<MaterialConstant>& constants = material->m_Constants;
+        dmArray<MaterialConstant>& constants = material->m_GraphicsMaterial->m_Constants;
         int32_t n = (int32_t)constants.Size();
         for (int32_t i = 0; i < n; ++i)
         {
@@ -365,7 +366,7 @@ namespace dmRender
         if (index < 0)
             return;
 
-        MaterialConstant& mc = material->m_Constants[index];
+        MaterialConstant& mc = material->m_GraphicsMaterial->m_Constants[index];
         SetConstantType(mc.m_Constant, type);
     }
 
@@ -375,14 +376,14 @@ namespace dmRender
         if (index < 0)
             return false;
 
-        MaterialConstant& mc = material->m_Constants[index];
+        MaterialConstant& mc = material->m_GraphicsMaterial->m_Constants[index];
         out_value = mc.m_Constant;
         return true;
     }
 
     bool GetMaterialProgramConstantInfo(HMaterial material, dmhash_t name_hash, dmhash_t* out_constant_id, dmhash_t* out_element_ids[4], uint32_t* out_element_index, uint16_t* out_array_size)
     {
-        dmArray<MaterialConstant>& constants = material->m_Constants;
+        dmArray<MaterialConstant>& constants = material->m_GraphicsMaterial->m_Constants;
         uint32_t n = constants.Size();
         *out_element_index = ~0u;
         for (uint32_t i = 0; i < n; ++i)
@@ -419,7 +420,7 @@ namespace dmRender
         if (index < 0)
             return;
 
-        MaterialConstant& mc = material->m_Constants[index];
+        MaterialConstant& mc = material->m_GraphicsMaterial->m_Constants[index];
 
         uint32_t num_default_values;
         dmVMath::Vector4* constant_values = dmRender::GetConstantValues(mc.m_Constant, &num_default_values);
@@ -435,7 +436,7 @@ namespace dmRender
 
     int32_t GetMaterialConstantLocation(HMaterial material, dmhash_t name_hash)
     {
-        int32_t* location = material->m_NameHashToLocation.Get(name_hash);
+        int32_t* location = material->m_GraphicsMaterial->m_NameHashToLocation.Get(name_hash);
         if (location)
             return *location;
         else
@@ -444,15 +445,15 @@ namespace dmRender
 
     void SetMaterialSampler(HMaterial material, dmhash_t name_hash, uint32_t unit, dmGraphics::TextureWrap u_wrap, dmGraphics::TextureWrap v_wrap, dmGraphics::TextureFilter min_filter, dmGraphics::TextureFilter mag_filter, float max_anisotropy)
     {
-        dmArray<Sampler>& samplers = material->m_Samplers;
+        dmArray<Sampler>& samplers = material->m_GraphicsMaterial->m_Samplers;
 
         uint32_t n = samplers.Size();
         uint32_t i = unit;
-        if (unit < n && name_hash != 0 && material->m_NameHashToLocation.Get(name_hash) != 0)
+        if (unit < n && name_hash != 0 && material->m_GraphicsMaterial->m_NameHashToLocation.Get(name_hash) != 0)
         {
             Sampler& s = samplers[i];
             s.m_NameHash = name_hash;
-            s.m_Location = *material->m_NameHashToLocation.Get(name_hash);
+            s.m_Location = *material->m_GraphicsMaterial->m_NameHashToLocation.Get(name_hash);
             s.m_Unit = unit;
 
             s.m_UWrap = u_wrap;
@@ -465,42 +466,42 @@ namespace dmRender
 
     HRenderContext GetMaterialRenderContext(HMaterial material)
     {
-        return material->m_RenderContext;
+        return material->m_GraphicsMaterial->m_RenderContext;
     }
 
     uint64_t GetMaterialUserData1(HMaterial material)
     {
-        return material->m_UserData1;
+        return material->m_GraphicsMaterial->m_UserData1;
     }
 
     void SetMaterialUserData1(HMaterial material, uint64_t user_data)
     {
-        material->m_UserData1 = user_data;
+        material->m_GraphicsMaterial->m_UserData1 = user_data;
     }
 
     uint64_t GetMaterialUserData2(HMaterial material)
     {
-        return material->m_UserData2;
+        return material->m_GraphicsMaterial->m_UserData2;
     }
 
     void SetMaterialUserData2(HMaterial material, uint64_t user_data)
     {
-        material->m_UserData2 = user_data;
+        material->m_GraphicsMaterial->m_UserData2 = user_data;
     }
 
     void SetMaterialVertexSpace(HMaterial material, dmRenderDDF::MaterialDesc::VertexSpace vertex_space)
     {
-        material->m_VertexSpace = vertex_space;
+        material->m_GraphicsMaterial->m_VertexSpace = vertex_space;
     }
 
     dmRenderDDF::MaterialDesc::VertexSpace GetMaterialVertexSpace(HMaterial material)
     {
-        return material->m_VertexSpace;
+        return material->m_GraphicsMaterial->m_VertexSpace;
     }
 
     uint32_t GetMaterialTagListKey(HMaterial material)
     {
-        return material->m_TagListKey;
+        return material->m_GraphicsMaterial->m_TagListKey;
     }
 
     uint32_t RegisterMaterialTagList(HRenderContext context, uint32_t tag_count, const dmhash_t* tags)
@@ -542,12 +543,12 @@ namespace dmRender
 
     void SetMaterialTags(HMaterial material, uint32_t tag_count, const dmhash_t* tags)
     {
-        material->m_TagListKey = RegisterMaterialTagList(material->m_RenderContext, tag_count, tags);
+        material->m_GraphicsMaterial->m_TagListKey = RegisterMaterialTagList(material->m_GraphicsMaterial->m_RenderContext, tag_count, tags);
     }
 
     void ClearMaterialTags(HMaterial material)
     {
-        material->m_TagListKey = 0;
+        material->m_GraphicsMaterial->m_TagListKey = 0;
     }
 
     bool MatchMaterialTags(uint32_t material_tag_count, const dmhash_t* material_tags, uint32_t tag_count, const dmhash_t* tags)

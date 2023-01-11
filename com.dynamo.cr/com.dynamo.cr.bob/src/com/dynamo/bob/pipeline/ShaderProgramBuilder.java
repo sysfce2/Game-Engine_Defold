@@ -163,9 +163,7 @@ public abstract class ShaderProgramBuilder extends Builder<Void> {
         byte[] bytes = new byte[n];
         is.read(bytes, 0, n);
         String source = new String(bytes, StandardCharsets.UTF_8);
-
         String transformedSource = compileGLSL(source, shaderType, shaderLanguage, resourceOutput, isDebug);
-
         builder.setSource(ByteString.copyFrom(transformedSource, "UTF-8"));
         return builder;
     }
@@ -439,55 +437,90 @@ public abstract class ShaderProgramBuilder extends Builder<Void> {
         return res;
     }
 
+    static private byte[] compileSpirvCompute(String source, String resourceOutput, boolean isDebug) throws IOException, CompileExceptionError {
+        //System.out.println(source);
+
+        // compile GLSL (ES3 or Desktop 140) to SPIR-V
+        File file_in_compute = File.createTempFile(FilenameUtils.getName(resourceOutput), ".compute");
+        file_in_compute.deleteOnExit();
+        FileUtils.writeByteArrayToFile(file_in_compute, source.getBytes());
+
+        File file_out_spv = File.createTempFile(FilenameUtils.getName(resourceOutput), ".spv");
+        file_out_spv.deleteOnExit();
+
+        Result result = Exec.execResult(Bob.getExe(Platform.getHostPlatform(), "glslc"),
+                "-w",
+                //"-fauto-bind-uniforms",
+                //"-fauto-map-locations",
+                //"-fubo-binding-base", glslcBindingBaseStr,
+                //"-ftexture-binding-base", glslcBindingBaseStr,
+                //"-std=" + es3Result.shaderVersion + es3Result.shaderProfile,
+                "-fshader-stage=compute",
+                "-o", file_out_spv.getAbsolutePath(),
+                file_in_compute.getAbsolutePath());
+
+        String result_string = getResultString(result);
+        checkResult(result_string, null, resourceOutput);
+
+        return FileUtils.readFileToByteArray(file_out_spv);
+    }
+
     static private ShaderDesc.Shader.Builder buildSpirvFromGLSL(ByteArrayInputStream is, ES2ToES3Converter.ShaderType shaderType, IResource resource, String resourceOutput, String targetProfile, boolean isDebug, boolean soft_fail)  throws IOException, CompileExceptionError {
         InputStreamReader isr = new InputStreamReader(is);
         CharBuffer source = CharBuffer.allocate(is.available());
         isr.read(source);
         source.flip();
 
-        SPIRVCompileResult compile_res = compileGLSLToSPIRV(source.toString(), shaderType, resourceOutput, targetProfile, isDebug, soft_fail);
-
-        if (compile_res.compile_warnings.size() > 0)
-        {
-            String resourcePath = resourceOutput;
-
-            if (resource != null)
-            {
-                resourcePath = resource.getPath();
-            }
-
-            System.err.println("\nWarning! Found " + compile_res.compile_warnings.size() + " issues when compiling '" + resourcePath + "' to SPIR-V:");
-            for (String issueStr : compile_res.compile_warnings) {
-                System.err.println("  " + issueStr);
-            }
-
-            return null;
-        }
-
         ShaderDesc.Shader.Builder builder = ShaderDesc.Shader.newBuilder();
         builder.setLanguage(ShaderDesc.Language.LANGUAGE_SPIRV);
-        builder.setSource(ByteString.copyFrom(compile_res.source));
 
-        // Note: No need to check for duplicates for vertex attributes,
-        // the SPIR-V compiler will complain about it.
-        for (SPIRVReflector.Resource input : compile_res.attributes) {
-            ShaderDesc.ResourceBinding.Builder resourceBindingBuilder = ShaderDesc.ResourceBinding.newBuilder();
-            resourceBindingBuilder.setName(input.name);
-            resourceBindingBuilder.setType(stringTypeToShaderType(input.type));
-            resourceBindingBuilder.setSet(input.set);
-            resourceBindingBuilder.setBinding(input.binding);
-            builder.addAttributes(resourceBindingBuilder);
-        }
+        if (shaderType == ES2ToES3Converter.ShaderType.COMPUTE_SHADER) {
+            System.out.println("SPIRV Compute shader");
+            byte[] compile_res = compileSpirvCompute(source.toString(), resourceOutput, isDebug);
+            builder.setSource(ByteString.copyFrom(compile_res));
+        } else {
+            SPIRVCompileResult compile_res = compileGLSLToSPIRV(source.toString(), shaderType, resourceOutput, targetProfile, isDebug, soft_fail);
 
-        // Build uniforms
-        for (SPIRVReflector.Resource res : compile_res.resource_list) {
-            ShaderDesc.ResourceBinding.Builder resourceBindingBuilder = ShaderDesc.ResourceBinding.newBuilder();
-            resourceBindingBuilder.setName(res.name);
-            resourceBindingBuilder.setType(stringTypeToShaderType(res.type));
-            resourceBindingBuilder.setElementCount(res.elementCount);
-            resourceBindingBuilder.setSet(res.set);
-            resourceBindingBuilder.setBinding(res.binding);
-            builder.addUniforms(resourceBindingBuilder);
+            if (compile_res.compile_warnings.size() > 0)
+            {
+                String resourcePath = resourceOutput;
+
+                if (resource != null)
+                {
+                    resourcePath = resource.getPath();
+                }
+
+                System.err.println("\nWarning! Found " + compile_res.compile_warnings.size() + " issues when compiling '" + resourcePath + "' to SPIR-V:");
+                for (String issueStr : compile_res.compile_warnings) {
+                    System.err.println("  " + issueStr);
+                }
+
+                return null;
+            }
+
+            builder.setSource(ByteString.copyFrom(compile_res.source));
+
+            // Note: No need to check for duplicates for vertex attributes,
+            // the SPIR-V compiler will complain about it.
+            for (SPIRVReflector.Resource input : compile_res.attributes) {
+                ShaderDesc.ResourceBinding.Builder resourceBindingBuilder = ShaderDesc.ResourceBinding.newBuilder();
+                resourceBindingBuilder.setName(input.name);
+                resourceBindingBuilder.setType(stringTypeToShaderType(input.type));
+                resourceBindingBuilder.setSet(input.set);
+                resourceBindingBuilder.setBinding(input.binding);
+                builder.addAttributes(resourceBindingBuilder);
+            }
+
+            // Build uniforms
+            for (SPIRVReflector.Resource res : compile_res.resource_list) {
+                ShaderDesc.ResourceBinding.Builder resourceBindingBuilder = ShaderDesc.ResourceBinding.newBuilder();
+                resourceBindingBuilder.setName(res.name);
+                resourceBindingBuilder.setType(stringTypeToShaderType(res.type));
+                resourceBindingBuilder.setElementCount(res.elementCount);
+                resourceBindingBuilder.setSet(res.set);
+                resourceBindingBuilder.setBinding(res.binding);
+                builder.addUniforms(resourceBindingBuilder);
+            }
         }
 
         return builder;
@@ -495,6 +528,12 @@ public abstract class ShaderProgramBuilder extends Builder<Void> {
 
     public ShaderDesc compile(ByteArrayInputStream is, ES2ToES3Converter.ShaderType shaderType, IResource resource, String resourceOutput, String platform, boolean isDebug, boolean outputSpirv, boolean soft_fail) throws IOException, CompileExceptionError {
         ShaderDesc.Builder shaderDescBuilder = ShaderDesc.newBuilder();
+
+        if (shaderType == ES2ToES3Converter.ShaderType.COMPUTE_SHADER) {
+            shaderDescBuilder.setShaderClass(ShaderDesc.ShaderClass.SHADER_CLASS_COMPUTE);
+        } else {
+            shaderDescBuilder.setShaderClass(ShaderDesc.ShaderClass.SHADER_CLASS_GRAPHICS);
+        }
 
         // Build platform specific shader targets (e.g SPIRV, MSL, ..)
         Platform platformKey = Platform.get(platform);

@@ -364,7 +364,7 @@ struct ApplyConstantContext
 
 static inline void ApplyConstant(ApplyConstantContext* context, const uint64_t* name_hash, NamedConstantBuffer::Constant* constant)
 {
-    int32_t* location = context->m_Material->m_NameHashToLocation.Get(*name_hash);
+    int32_t* location = context->m_Material->m_GraphicsMaterial->m_NameHashToLocation.Get(*name_hash);
     if (location)
     {
         dmVMath::Vector4* values = &context->m_ConstantBuffer->m_Values[constant->m_ValueIndex];

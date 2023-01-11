@@ -266,7 +266,8 @@ namespace dmGraphics
         {
             MODULE_TYPE_VERTEX   = 0,
             MODULE_TYPE_FRAGMENT = 1,
-            MODULE_TYPE_COUNT    = 2
+            MODULE_TYPE_COMPUTE  = 2,
+            MODULE_TYPE_COUNT    = 3,
         };
 
         struct VulkanHandle
@@ -281,6 +282,7 @@ namespace dmGraphics
         VulkanHandle                    m_Handle;
         ShaderModule*                   m_VertexModule;
         ShaderModule*                   m_FragmentModule;
+        ShaderModule*                   m_ComputeModule;
         VkPipelineShaderStageCreateInfo m_PipelineStageInfo[MODULE_TYPE_COUNT];
         uint8_t                         m_Destroyed : 1;
 
@@ -458,6 +460,7 @@ namespace dmGraphics
     VkResult CreatePipeline(VkDevice vk_device, VkRect2D vk_scissor, VkSampleCountFlagBits vk_sample_count,
         const PipelineState pipelineState, Program* program, DeviceBuffer* vertexBuffer,
         HVertexDeclaration vertexDeclaration, RenderTarget* render_target, Pipeline* pipelineOut);
+    VkResult CreatePipeline(VkDevice vk_device, Program* program, Pipeline* pipelineOut);
     // Reset functions
     void           ResetScratchBuffer(VkDevice vk_device, ScratchBuffer* scratchBuffer);
     // Destroy funcions

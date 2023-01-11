@@ -63,9 +63,15 @@ namespace dmRender
         }
     };
 
-    struct Material
+    enum MaterialClass
     {
-        Material()
+        MATERIAL_CLASS_GRAPHICS = 0,
+        MATERIAL_CLASS_COMPUTE  = 1,
+    };
+
+    struct GraphicsMaterial
+    {
+        GraphicsMaterial()
         : m_RenderContext(0)
         , m_Program(0)
         , m_VertexProgram(0)
@@ -87,6 +93,32 @@ namespace dmRender
         uint64_t                                m_UserData1;
         uint64_t                                m_UserData2;
         dmRenderDDF::MaterialDesc::VertexSpace  m_VertexSpace;
+    };
+
+    struct ComputeMaterial
+    {
+        dmGraphics::HProgram        m_Program;
+        dmGraphics::HComputeProgram m_ComputeProgram;
+    };
+
+    struct Material
+    {
+        Material(GraphicsMaterial* m)
+        : m_GraphicsMaterial(m)
+        , m_Class(MATERIAL_CLASS_GRAPHICS)
+        {}
+
+        Material(ComputeMaterial* m)
+        : m_ComputeMaterial(m)
+        , m_Class(MATERIAL_CLASS_COMPUTE)
+        {}
+
+        union {
+            GraphicsMaterial* m_GraphicsMaterial;
+            ComputeMaterial*  m_ComputeMaterial;
+        };
+
+        MaterialClass m_Class;
     };
 
     // The order of this enum also defines the order in which the corresponding ROs should be rendered

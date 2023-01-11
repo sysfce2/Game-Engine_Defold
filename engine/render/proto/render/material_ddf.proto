@@ -7,6 +7,13 @@ import "ddf/ddf_math.proto";
 option java_package = "com.dynamo.render.proto";
 option java_outer_classname = "Material";
 
+message ComputeMaterialDesc
+{
+    required string name = 1;
+    repeated string tags = 2;
+    required string program = 3 [(resource)=true];
+}
+
 message MaterialDesc
 {
     enum ConstantType

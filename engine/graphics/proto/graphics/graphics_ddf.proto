@@ -155,6 +155,12 @@ message TextureProfiles
 
 message ShaderDesc
 {
+    enum ShaderClass
+    {
+        SHADER_CLASS_GRAPHICS = 0;
+        SHADER_CLASS_COMPUTE  = 1;
+    }
+
     enum Language
     {
         LANGUAGE_GLSL_SM120 = 1; // OpenGLES 2 compatible
@@ -198,5 +204,6 @@ message ShaderDesc
         repeated ResourceBinding attributes = 5;
     }
 
-    repeated Shader shaders = 1;
+    repeated Shader      shaders = 1;
+    required ShaderClass shader_class   = 2;
 }

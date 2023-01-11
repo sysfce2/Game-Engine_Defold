@@ -897,6 +897,21 @@ bail:
         VK_COMPARE_OP_ALWAYS
     };
 
+    VkResult CreatePipeline(VkDevice vk_device, Program* program, Pipeline* pipelineOut)
+    {
+        assert(pipelineOut && *pipelineOut == VK_NULL_HANDLE);
+
+        VkComputePipelineCreateInfo vk_pipeline_create_info = {};
+        vk_pipeline_create_info.sType              = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+        vk_pipeline_create_info.basePipelineHandle = 0;
+        vk_pipeline_create_info.basePipelineIndex  = 0;
+        vk_pipeline_create_info.flags              = 0;
+        vk_pipeline_create_info.layout             = 0; //pipeline.pipeline_layout;
+        vk_pipeline_create_info.pNext              = 0;
+        vk_pipeline_create_info.stage              = program->m_PipelineStageInfo[Program::MODULE_TYPE_COMPUTE]; // vk_pipeline_shader_stage;
+        return vkCreateComputePipelines(vk_device, 0, 1, &vk_pipeline_create_info, 0, pipelineOut);
+    }
+
     VkResult CreatePipeline(VkDevice vk_device, VkRect2D vk_scissor, VkSampleCountFlagBits vk_sample_count,
         PipelineState pipelineState, Program* program, DeviceBuffer* vertexBuffer,
         HVertexDeclaration vertexDeclaration, RenderTarget* render_target, Pipeline* pipelineOut)
@@ -1057,7 +1072,7 @@ bail:
         memset(&vk_pipeline_info, 0, sizeof(vk_pipeline_info));
 
         vk_pipeline_info.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-        vk_pipeline_info.stageCount          = sizeof(program->m_PipelineStageInfo) / sizeof(VkPipelineShaderStageCreateInfo);
+        vk_pipeline_info.stageCount          = 2; // sizeof(program->m_PipelineStageInfo) / sizeof(VkPipelineShaderStageCreateInfo);
         vk_pipeline_info.pStages             = program->m_PipelineStageInfo;
         vk_pipeline_info.pVertexInputState   = &vk_vertex_input_info;
         vk_pipeline_info.pInputAssemblyState = &vk_input_assembly;

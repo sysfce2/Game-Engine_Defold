@@ -175,6 +175,11 @@ namespace dmRender
                     delete matrix;
                     break;
                 }
+                case COMMAND_TYPE_DISPATCH_COMPUTE:
+                {
+                    dmRender::DispatchCompute(render_context);
+                    break;
+                }
                 case COMMAND_TYPE_DRAW_DEBUG3D:
                 {
                     dmVMath::Matrix4* matrix = (dmVMath::Matrix4*)c->m_Operands[0];

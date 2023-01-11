@@ -1372,6 +1372,35 @@ bail:
         resource->m_Destroyed = 1;
     }
 
+    static Pipeline* GetOrCreateComputePipeline(VkDevice vk_device, PipelineCache& pipelineCache, Program* program)
+    {
+        //HashState64 pipeline_hash_state;
+        //dmHashInit64(&pipeline_hash_state, false);
+        //dmHashUpdateBuffer64(&pipeline_hash_state, &program->m_Hash, sizeof(program->m_Hash));
+        //uint64_t pipeline_hash = dmHashFinal64(&pipeline_hash_state);
+        Pipeline* cached_pipeline = pipelineCache.Get(program->m_Hash);
+        if (!cached_pipeline)
+        {
+            Pipeline new_pipeline;
+            memset(&new_pipeline, 0, sizeof(new_pipeline));
+
+            VkResult res = CreatePipeline(vk_device, program, &new_pipeline);
+            CHECK_VK_ERROR(res);
+
+            if (pipelineCache.Full())
+            {
+                pipelineCache.SetCapacity(32, pipelineCache.Capacity() + 4);
+            }
+
+            pipelineCache.Put(program->m_Hash, new_pipeline);
+            cached_pipeline = pipelineCache.Get(program->m_Hash);
+
+            dmLogDebug("Created new VK Pipeline with hash %llu", (unsigned long long) program->m_Hash);
+        }
+
+        return cached_pipeline;
+    }
+
     static Pipeline* GetOrCreatePipeline(VkDevice vk_device, VkSampleCountFlagBits vk_sample_count,
         const PipelineState pipelineState, PipelineCache& pipelineCache,
         Program* program, RenderTarget* rt, DeviceBuffer* vertexBuffer, HVertexDeclaration vertexDeclaration)
@@ -2047,6 +2076,27 @@ bail:
         vkCmdDraw(vk_command_buffer, count, 1, first, 0);
     }
 
+    static void DrawSetupCompute(HContext context, VkCommandBuffer vk_command_buffer)
+    {
+        VkDevice vk_device   = context->m_LogicalDevice.m_Device;
+        Program* program_ptr = context->m_CurrentProgram;
+        Pipeline* pipeline   = GetOrCreateComputePipeline(vk_device, context->m_PipelineCache, program_ptr);
+        vkCmdBindPipeline(vk_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
+    }
+
+    static void VulkanDispatchCompute(HContext context)
+    {
+        DM_PROFILE(__FUNCTION__);
+        DM_PROPERTY_ADD_U32(rmtp_DrawCalls, 1);
+        assert(context->m_FrameBegun);
+        const uint8_t image_ix = context->m_SwapChain->m_ImageIndex;
+
+        VkCommandBuffer vk_command_buffer = context->m_MainCommandBuffers[image_ix];
+
+        DrawSetupCompute(context, vk_command_buffer);
+        vkCmdDispatch(vk_command_buffer, 1, 1, 1);
+    }
+
     static void CreateShaderResourceBindings(ShaderModule* shader, ShaderDesc::Shader* ddf, uint32_t dynamicAlignment)
     {
         if (ddf->m_Uniforms.m_Count > 0)
@@ -2130,6 +2180,15 @@ bail:
         return (HFragmentProgram) shader;
     }
 
+    static HComputeProgram VulkanNewComputeProgram(HContext context, ShaderDesc::Shader* ddf)
+    {
+        ShaderModule* shader = new ShaderModule;
+        memset(shader, 0, sizeof(*shader));
+        VkResult res = CreateShaderModule(context->m_LogicalDevice.m_Device, ddf->m_Source.m_Data, ddf->m_Source.m_Count, shader);
+        CHECK_VK_ERROR(res);
+        return (HComputeProgram) shader;
+    }
+
     static void CreateProgramUniforms(ShaderModule* module, VkShaderStageFlags vk_stage_flag,
         uint32_t byte_offset_base, uint32_t* byte_offset_list_out, uint32_t byte_offset_list_size,
         uint32_t* byte_offset_end_out, VkDescriptorSetLayoutBinding* vk_bindings_out)
@@ -2171,6 +2230,20 @@ bail:
         *byte_offset_end_out = byte_offset;
     }
 
+    static void CreateProgram(HContext context, Program* program, ShaderModule* compute_program)
+    {
+        VkPipelineShaderStageCreateInfo vk_compute_shader_create_info = {};
+        vk_compute_shader_create_info.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        vk_compute_shader_create_info.stage  = VK_SHADER_STAGE_COMPUTE_BIT;
+        vk_compute_shader_create_info.module = compute_program->m_Module;
+        vk_compute_shader_create_info.pName  = "main";
+
+        memset(program, 0, sizeof(Program));
+
+        program->m_PipelineStageInfo[Program::MODULE_TYPE_COMPUTE] = vk_compute_shader_create_info;
+        program->m_ComputeModule = compute_program;
+    }
+
     static void CreateProgram(HContext context, Program* program, ShaderModule* vertex_module, ShaderModule* fragment_module)
     {
         // Set pipeline creation info
@@ -2190,13 +2263,12 @@ bail:
         vk_fragment_shader_create_info.module = fragment_module->m_Module;
         vk_fragment_shader_create_info.pName  = "main";
 
+        memset(program, 0, sizeof(Program));
+
         program->m_PipelineStageInfo[Program::MODULE_TYPE_VERTEX]      = vk_vertex_shader_create_info;
         program->m_PipelineStageInfo[Program::MODULE_TYPE_FRAGMENT]    = vk_fragment_shader_create_info;
-        program->m_Hash               = 0;
-        program->m_UniformDataOffsets = 0;
-        program->m_UniformData        = 0;
-        program->m_VertexModule       = vertex_module;
-        program->m_FragmentModule     = fragment_module;
+        program->m_VertexModule   = vertex_module;
+        program->m_FragmentModule = fragment_module;
 
         HashState64 program_hash;
         dmHashInit64(&program_hash, false);
@@ -2269,6 +2341,13 @@ bail:
     {
         Program* program = new Program;
         CreateProgram(context, program, (ShaderModule*) vertex_program, (ShaderModule*) fragment_program);
+        return (HProgram) program;
+    }
+
+    static HProgram VulkanNewProgram(HContext context, HComputeProgram compute_program)
+    {
+        Program* program = new Program;
+        CreateProgram(context, program, (ShaderModule*) compute_program);
         return (HProgram) program;
     }
 
@@ -3517,8 +3596,11 @@ bail:
         fn_table.m_HashVertexDeclaration = VulkanHashVertexDeclaration;
         fn_table.m_DrawElements = VulkanDrawElements;
         fn_table.m_Draw = VulkanDraw;
+        fn_table.m_DispatchCompute = VulkanDispatchCompute;
         fn_table.m_NewVertexProgram = VulkanNewVertexProgram;
         fn_table.m_NewFragmentProgram = VulkanNewFragmentProgram;
+        fn_table.m_NewComputeProgram = VulkanNewComputeProgram;
+        fn_table.m_NewProgramNeedsNewName = VulkanNewProgram;
         fn_table.m_NewProgram = VulkanNewProgram;
         fn_table.m_DeleteProgram = VulkanDeleteProgram;
         fn_table.m_ReloadVertexProgram = VulkanReloadVertexProgram;

@@ -1624,6 +1624,16 @@ namespace dmRender
             return luaL_error(L, "Command buffer is full (%d).", i->m_CommandBuffer.Capacity());
     }
 
+    int RenderScript_DispatchCompute(lua_State* L)
+    {
+        RenderScriptInstance* i = RenderScriptInstance_Check(L);
+
+        if (InsertCommand(i, Command(COMMAND_TYPE_DISPATCH_COMPUTE)))
+            return 0;
+        else
+            return luaL_error(L, "Command buffer is full (%d).", i->m_CommandBuffer.Capacity());
+    }
+
     /*# draws all objects matching a predicate
      * Draws all objects that match a specified predicate. An optional constant buffer can be
      * provided to override the default constants. If no constants buffer is provided, a default
@@ -1668,8 +1678,8 @@ namespace dmRender
      * local frustum = self.proj * self.view
      * render.draw(self.my_pred, {frustum = frustum, constants = constants})
      * ```
-
      */
+
     int RenderScript_Draw(lua_State* L)
     {
         RenderScriptInstance* i = RenderScriptInstance_Check(L);
@@ -2769,6 +2779,7 @@ namespace dmRender
         {"draw",                            RenderScript_Draw},
         {"draw_debug3d",                    RenderScript_DrawDebug3d},
         {"draw_debug2d",                    RenderScript_DrawDebug2d},
+        {"dispatch_compute",                RenderScript_DispatchCompute},
         {"get_width",                       RenderScript_GetWidth},
         {"get_height",                      RenderScript_GetHeight},
         {"get_window_width",                RenderScript_GetWindowWidth},

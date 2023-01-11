@@ -670,6 +670,10 @@ namespace dmGraphics
     {
         g_functions.m_Draw(context, prim_type, first, count);
     }
+    void DispatchCompute(HContext context)
+    {
+        g_functions.m_DispatchCompute(context);
+    }
     HVertexProgram NewVertexProgram(HContext context, ShaderDesc::Shader* ddf)
     {
         return g_functions.m_NewVertexProgram(context, ddf);
@@ -678,9 +682,17 @@ namespace dmGraphics
     {
         return g_functions.m_NewFragmentProgram(context, ddf);
     }
+    HComputeProgram NewComputeProgram(HContext context, ShaderDesc::Shader* ddf)
+    {
+        return g_functions.m_NewComputeProgram(context, ddf);
+    }
     HProgram NewProgram(HContext context, HVertexProgram vertex_program, HFragmentProgram fragment_program)
     {
         return g_functions.m_NewProgram(context, vertex_program, fragment_program);
+    }
+    HProgram NewProgram(HContext context, HComputeProgram compute_program)
+    {
+        return g_functions.m_NewProgramNeedsNewName(context, compute_program);
     }
     void DeleteProgram(HContext context, HProgram program)
     {
