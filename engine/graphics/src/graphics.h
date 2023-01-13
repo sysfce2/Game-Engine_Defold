@@ -62,6 +62,7 @@ namespace dmGraphics
     typedef void (*EngineGetResult)(void* engine, int* run_action, int* exit_code, int* argc, char*** argv);
 
     typedef uintptr_t HComputeProgram;
+    typedef uintptr_t HGPUBuffer;
 
     static const HVertexProgram INVALID_VERTEX_PROGRAM_HANDLE = ~0u;
     static const HFragmentProgram INVALID_FRAGMENT_PROGRAM_HANDLE = ~0u;
@@ -526,6 +527,10 @@ namespace dmGraphics
     void DrawElements(HContext context, PrimitiveType prim_type, uint32_t first, uint32_t count, Type type, HIndexBuffer index_buffer);
     void Draw(HContext context, PrimitiveType prim_type, uint32_t first, uint32_t count);
     void DispatchCompute(HContext context);
+
+    HGPUBuffer NewGPUBuffer(HContext context);
+
+    void SetGPUBufferData(HContext context, HGPUBuffer buffer, uint32_t size, const void* data);
 
     HVertexProgram NewVertexProgram(HContext context, ShaderDesc::Shader* ddf);
     HFragmentProgram NewFragmentProgram(HContext context, ShaderDesc::Shader* ddf);

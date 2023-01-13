@@ -194,6 +194,7 @@ message ShaderDesc
         optional uint32         element_count = 3 [default=1];
         optional uint32         set           = 4 [default=0];
         optional uint32         binding       = 5 [default=0];
+        optional bool           ssbo          = 6;
     }
 
     message Shader

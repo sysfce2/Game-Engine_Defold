@@ -202,6 +202,11 @@ namespace dmRender
                     render_context->m_Material = 0;
                     break;
                 }
+                case COMMAND_TYPE_SET_GPU_BUFFER:
+                {
+                    dmGraphics::SetGPUBuffer(context, (dmGraphics::HGPUBuffer) c->m_Operands[0], c->m_Operands[1]);
+                    break;
+                }
                 default:
                 {
                     dmLogError("No such render command (%d).", c->m_Type);

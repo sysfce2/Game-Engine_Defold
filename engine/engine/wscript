@@ -80,6 +80,9 @@ namespace dmEngineVersion
 
             # Link with vulkan.dylib if the env is set (see graphics/vulkan/README.md) for more information
             validation = int(os.environ.get('DM_VULKAN_VALIDATION','0'))
+
+            print("USING VALIDATION LAYERS", validation)
+
             conf.env.append_value('LINKFLAGS', ['-l', validation and 'vulkan' or 'MoltenVK'])
 
             # Metal deps requires libc++ stdlib. Remove once we've updated to use libc++ std

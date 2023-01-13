@@ -2749,6 +2749,45 @@ namespace dmRender
             return luaL_error(L, "Command buffer is full (%d).", i->m_CommandBuffer.Capacity());
     }
 
+    int RenderScript_Buffer(lua_State* L)
+    {
+        RenderScriptInstance* i = RenderScriptInstance_Check(L);
+        dmGraphics::HGPUBuffer buf = dmGraphics::NewGPUBuffer(i->m_RenderContext->m_GraphicsContext);
+        lua_pushlightuserdata(L, (void*) buf);
+        return 0;
+    }
+
+    int RenderScript_SetBuffer(lua_State* L)
+    {
+        RenderScriptInstance* i = RenderScriptInstance_Check(L);
+
+        if(lua_islightuserdata(L, 1))
+        {
+            buf = (dmGraphics::HGPUBuffer) lua_touserdata(L, 1);
+        }
+
+        dmGraphics::SetGPUBufferData(i->m_RenderContext->m_GraphicsContext, buf, ptr, size);
+
+        return 0;
+    }
+
+    int RenderScript_EnableBuffer(lua_State* L)
+    {
+        RenderScriptInstance* i = RenderScriptInstance_Check(L);
+
+        dmGraphics::HGPUBuffer buf = 0;
+
+        if(lua_islightuserdata(L, 1))
+        {
+            buf = (dmGraphics::HGPUBuffer) lua_touserdata(L, 1);
+        }
+
+        if (InsertCommand(i, Command(COMMAND_TYPE_SET_GPU_BUFFER, (uintptr_t) buf)))
+            return 0;
+        else
+            return luaL_error(L, "Command buffer is full (%d).", i->m_CommandBuffer.Capacity());
+    }
+
     static const luaL_reg Render_methods[] =
     {
         {"enable_state",                    RenderScript_EnableState},
@@ -2788,6 +2827,10 @@ namespace dmRender
         {"constant_buffer",                 RenderScript_ConstantBuffer},
         {"enable_material",                 RenderScript_EnableMaterial},
         {"disable_material",                RenderScript_DisableMaterial},
+        // compute
+        {"buffer",                          RenderScript_Buffer},
+        {"set_buffer",                      RenderScript_SetBuffer},
+        {"enable_buffer",                   RenderScript_EnableBuffer},
         {0, 0}
     };
 

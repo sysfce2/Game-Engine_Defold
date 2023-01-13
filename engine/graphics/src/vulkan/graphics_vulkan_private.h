@@ -244,6 +244,7 @@ namespace dmGraphics
             uint16_t               m_UniformDataIndex;
             uint16_t               m_TextureUnit;
         };
+        uint8_t m_Ssbo : 1;
     };
 
     struct ShaderModule
@@ -256,6 +257,7 @@ namespace dmGraphics
         uint16_t               m_UniformCount;
         uint16_t               m_AttributeCount;
         uint16_t               m_UniformBufferCount;
+        uint16_t               m_StorageBufferCount;
     };
 
     struct Program

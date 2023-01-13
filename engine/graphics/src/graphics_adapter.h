@@ -103,6 +103,8 @@ namespace dmGraphics
     typedef void (*DrawElementsFn)(HContext context, PrimitiveType prim_type, uint32_t first, uint32_t count, Type type, HIndexBuffer index_buffer);
     typedef void (*DrawFn)(HContext context, PrimitiveType prim_type, uint32_t first, uint32_t count);
     typedef void (*DispatchComputeFn)(HContext context);
+    typedef HGPUBuffer (*NewGPUBufferFn)(HContext context);
+    typedef void (*SetGPUBufferDataFn)(HContext context, HGPUBuffer buffer, uint32_t size, const void* data);
     typedef HVertexProgram (*NewVertexProgramFn)(HContext context, ShaderDesc::Shader* ddf);
     typedef HFragmentProgram (*NewFragmentProgramFn)(HContext context, ShaderDesc::Shader* ddf);
     typedef HComputeProgram (*NewComputeProgramFn)(HContext context, ShaderDesc::Shader* ddf);
@@ -218,6 +220,8 @@ namespace dmGraphics
         DrawElementsFn m_DrawElements;
         DrawFn m_Draw;
         DispatchComputeFn m_DispatchCompute;
+        NewGPUBufferFn m_NewGPUBuffer;
+        SetGPUBufferDataFn m_SetGPUBufferData;
         NewVertexProgramFn m_NewVertexProgram;
         NewFragmentProgramFn m_NewFragmentProgram;
         NewComputeProgramFn m_NewComputeProgram;

@@ -81,7 +81,7 @@ namespace dmGraphics
 
         VkDescriptorSetAllocateInfo vk_descriptor_set_alloc;
         vk_descriptor_set_alloc.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        vk_descriptor_set_alloc.descriptorSetCount = DM_MAX_SET_COUNT;
+        vk_descriptor_set_alloc.descriptorSetCount = setCount;
         vk_descriptor_set_alloc.pSetLayouts        = vk_descriptor_set_layout;
         vk_descriptor_set_alloc.descriptorPool     = m_Handle.m_DescriptorPool;
         vk_descriptor_set_alloc.pNext              = 0;
@@ -529,7 +529,8 @@ bail:
 
         VkDescriptorPoolSize vk_pool_size[] = {
             {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, descriptor_count},
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, descriptor_count}
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, descriptor_count},
+            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         descriptor_count},
         };
 
         descriptorAllocator->m_Handle.m_DescriptorPool = VK_NULL_HANDLE;
@@ -906,7 +907,7 @@ bail:
         vk_pipeline_create_info.basePipelineHandle = 0;
         vk_pipeline_create_info.basePipelineIndex  = 0;
         vk_pipeline_create_info.flags              = 0;
-        vk_pipeline_create_info.layout             = 0; //pipeline.pipeline_layout;
+        vk_pipeline_create_info.layout             = program->m_Handle.m_PipelineLayout; // pipeline.pipeline_layout;
         vk_pipeline_create_info.pNext              = 0;
         vk_pipeline_create_info.stage              = program->m_PipelineStageInfo[Program::MODULE_TYPE_COMPUTE]; // vk_pipeline_shader_stage;
         return vkCreateComputePipelines(vk_device, 0, 1, &vk_pipeline_create_info, 0, pipelineOut);

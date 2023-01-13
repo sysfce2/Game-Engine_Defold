@@ -39,16 +39,22 @@ public class ShaderUtil {
 
         public static class Resource
         {
-            public String name;
-            public String type;
-            public int    elementCount;
-            public int    binding;
-            public int    set;
+            public String  name;
+            public String  type;
+            public int     elementCount;
+            public int     binding;
+            public int     set;
+            public boolean ssbo;
         }
 
         public static class UniformBlock extends Resource
         {
             public ArrayList<Resource> uniforms;
+        }
+
+        public static class SSBOBlock extends Resource
+        {
+            public ArrayList<Resource> members;
         }
 
         public static ArrayList<UniformBlock> getUniformBlocks()
@@ -98,6 +104,60 @@ public class ShaderUtil {
             }
 
             return uniformBlocks;
+        }
+
+        public static ArrayList<SSBOBlock> getSsbos() {
+            ArrayList<SSBOBlock> ssbos = new ArrayList<SSBOBlock>();
+
+            JsonNode ssboNode  = root.get("ssbos");
+            JsonNode typesNode = root.get("types");
+
+            if (ssboNode == null || typesNode == null) {
+                return ssbos;
+            }
+
+            Iterator<JsonNode> ssboBlockIt = ssboNode.getElements();
+            while (ssboBlockIt.hasNext()) {
+                JsonNode ssboBlockNode = ssboBlockIt.next();
+
+                SSBOBlock ssbo = new SSBOBlock();
+                ssbo.name      = ssboBlockNode.get("name").asText();
+                ssbo.set       = ssboBlockNode.get("set").asInt();
+                ssbo.binding   = ssboBlockNode.get("binding").asInt();
+                ssbo.members   = new ArrayList<Resource>();
+
+                JsonNode typeNode    = typesNode.get(ssboBlockNode.get("type").asText());
+                JsonNode membersNode = typeNode.get("members");
+
+                System.out.println("SSBO:");
+                System.out.println("type: " + ssboBlockNode.get("type"));
+
+                for (Iterator<JsonNode> membersNodeIt = membersNode.getElements(); membersNodeIt.hasNext();) {
+                    JsonNode uniformNode = membersNodeIt.next();
+                    Resource res         = new Resource();
+                    res.name             = uniformNode.get("name").asText();
+                    res.type             = uniformNode.get("type").asText();
+                    res.elementCount     = 1;
+                    res.binding          = 0;
+                    res.set              = 0;
+
+                    JsonNode arrayNode = uniformNode.get("array");
+                    if (arrayNode != null && arrayNode.isArray())
+                    {
+                        ArrayNode array = (ArrayNode) arrayNode;
+                        res.elementCount = arrayNode.get(0).asInt();
+                    }
+
+                    System.out.println("name: " + res.name);
+                    System.out.println("type: " + res.type);
+
+                    ssbo.members.add(res);
+                }
+
+                ssbos.add(ssbo);
+            }
+
+            return ssbos;
         }
 
         public static ArrayList<Resource> getTextures() {

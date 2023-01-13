@@ -788,7 +788,7 @@ namespace dmRender
             return RESULT_INVALID_PARAMETER;
         }
 
-        dmGraphics::EnableProgram(context, GetMaterialProgram(context_material));
+        dmGraphics::EnableProgram(context, GetComputeMaterialProgram(context_material));
         dmGraphics::DispatchCompute(context);
 
         return RESULT_OK;

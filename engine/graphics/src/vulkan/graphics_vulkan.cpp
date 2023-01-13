@@ -962,6 +962,9 @@ namespace dmGraphics
             device_extensions.OffsetCapacity(1);
             device_extensions.Push(VK_IMG_FORMAT_PVRTC_EXTENSION_NAME);
         }
+
+        device_extensions.OffsetCapacity(1);
+        device_extensions.Push("VK_KHR_portability_subset");
     #endif
 
         res = CreateLogicalDevice(selected_device, context->m_WindowSurface, selected_queue_family,
@@ -1165,7 +1168,7 @@ bail:
         context->m_FrameBegun                     = 1;
         context->m_MainRenderTarget.m_Framebuffer = context->m_MainFrameBuffers[frame_ix];
 
-        BeginRenderPass(context, context->m_CurrentRenderTarget);
+        // BeginRenderPass(context, context->m_CurrentRenderTarget);
     }
 
     static void VulkanFlip(HContext context)
@@ -1226,6 +1229,8 @@ bail:
 
     static void VulkanClear(HContext context, uint32_t flags, uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha, float depth, uint32_t stencil)
     {
+        BeginRenderPass(context, context->m_CurrentRenderTarget);
+
         DM_PROFILE(__FUNCTION__);
         assert(context->m_CurrentRenderTarget);
 
@@ -1736,11 +1741,16 @@ bail:
         context->m_CurrentVertexDeclaration = 0;
     }
 
-    static inline bool IsUniformTextureSampler(ShaderResourceBinding uniform)
+    static inline bool IsUniformTextureSampler(ShaderResourceBinding binding)
     {
-        return uniform.m_Type == ShaderDesc::SHADER_TYPE_SAMPLER2D ||
-               uniform.m_Type == ShaderDesc::SHADER_TYPE_SAMPLER3D ||
-               uniform.m_Type == ShaderDesc::SHADER_TYPE_SAMPLER_CUBE;
+        return binding.m_Type == ShaderDesc::SHADER_TYPE_SAMPLER2D ||
+               binding.m_Type == ShaderDesc::SHADER_TYPE_SAMPLER3D ||
+               binding.m_Type == ShaderDesc::SHADER_TYPE_SAMPLER_CUBE;
+    }
+
+    static inline bool IsUniformStorageBuffer(ShaderResourceBinding binding)
+    {
+        return binding.m_Ssbo;
     }
 
     static void UpdateDescriptorSets(
@@ -1769,7 +1779,7 @@ bail:
         }
         else
         {
-            assert(0);
+            return;
         }
 
         if (shader_module->m_UniformCount == 0)
@@ -1880,8 +1890,35 @@ bail:
 
         vkCmdBindDescriptorSets(vk_command_buffer,
             VK_PIPELINE_BIND_POINT_GRAPHICS, program_ptr->m_Handle.m_PipelineLayout,
-            0, Program::MODULE_TYPE_COUNT, vk_descriptor_set_list,
+            0, 2/*Program::MODULE_TYPE_COUNT*/, vk_descriptor_set_list,
             num_uniform_buffers, dynamic_offsets);
+
+        return VK_SUCCESS;
+    }
+
+    static VkResult CommitComputeUniforms(VkCommandBuffer vk_command_buffer, VkDevice vk_device,
+        Program* program_ptr, ScratchBuffer* scratch_buffer,
+        uint32_t* dynamic_offsets, const uint32_t alignment)
+    {
+        VkDescriptorSet* vk_descriptor_set_list = 0x0;
+        VkResult res = scratch_buffer->m_DescriptorAllocator->Allocate(vk_device, &program_ptr->m_Handle.m_DescriptorSetLayout[Program::MODULE_TYPE_COMPUTE], 1, &vk_descriptor_set_list);
+        if (res != VK_SUCCESS)
+        {
+            return res;
+        }
+
+        //const uint32_t num_uniform_buffers = program_ptr->m_VertexModule->m_UniformBufferCount + program_ptr->m_FragmentModule->m_UniformBufferCount;
+        //VkDescriptorSet vs_set = vk_descriptor_set_list[Program::MODULE_TYPE_VERTEX];
+        //VkDescriptorSet fs_set = vk_descriptor_set_list[Program::MODULE_TYPE_FRAGMENT];
+
+        UpdateDescriptorSets(vk_device, vk_descriptor_set_list[0], program_ptr,
+            Program::MODULE_TYPE_COMPUTE, scratch_buffer,
+            alignment, dynamic_offsets);
+
+        vkCmdBindDescriptorSets(vk_command_buffer,
+            VK_PIPELINE_BIND_POINT_COMPUTE, program_ptr->m_Handle.m_PipelineLayout,
+            0, 1, vk_descriptor_set_list, 0, 0);
+            //num_uniform_buffers, dynamic_offsets);
 
         return VK_SUCCESS;
     }
@@ -1906,6 +1943,8 @@ bail:
 
     static void DrawSetup(HContext context, VkCommandBuffer vk_command_buffer, ScratchBuffer* scratchBuffer, DeviceBuffer* indexBuffer, Type indexBufferType)
     {
+        BeginRenderPass(context, context->m_CurrentRenderTarget);
+
         DeviceBuffer* vertex_buffer = context->m_CurrentVertexBuffer;
         Program* program_ptr        = context->m_CurrentProgram;
         VkDevice vk_device          = context->m_LogicalDevice.m_Device;
@@ -2076,12 +2115,54 @@ bail:
         vkCmdDraw(vk_command_buffer, count, 1, first, 0);
     }
 
-    static void DrawSetupCompute(HContext context, VkCommandBuffer vk_command_buffer)
+    static void DrawSetupCompute(HContext context, VkCommandBuffer vk_command_buffer, ScratchBuffer* scratchBuffer)
     {
         VkDevice vk_device   = context->m_LogicalDevice.m_Device;
         Program* program_ptr = context->m_CurrentProgram;
-        Pipeline* pipeline   = GetOrCreateComputePipeline(vk_device, context->m_PipelineCache, program_ptr);
-        vkCmdBindPipeline(vk_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
+
+        // Ensure there is room in the descriptor allocator to support this draw call
+        bool resize_desc_allocator = (scratchBuffer->m_DescriptorAllocator->m_DescriptorIndex + 1) >
+            scratchBuffer->m_DescriptorAllocator->m_DescriptorMax;
+
+        const uint8_t descriptor_increase = 32;
+        if (resize_desc_allocator)
+        {
+            VkResult res = ResizeDescriptorAllocator(context, scratchBuffer->m_DescriptorAllocator, scratchBuffer->m_DescriptorAllocator->m_DescriptorMax + descriptor_increase);
+            CHECK_VK_ERROR(res);
+        }
+
+        // Write the uniform data to the descriptors
+        uint32_t dynamic_alignment = (uint32_t) context->m_PhysicalDevice.m_Properties.limits.minUniformBufferOffsetAlignment;
+        // storage buffer alignment
+        VkResult res = CommitComputeUniforms(vk_command_buffer, vk_device,
+            program_ptr, scratchBuffer, context->m_DynamicOffsetBuffer, dynamic_alignment);
+        CHECK_VK_ERROR(res);
+
+        Pipeline* pipeline = GetOrCreateComputePipeline(vk_device, context->m_PipelineCache, program_ptr);
+        vkCmdBindPipeline(vk_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline);
+    }
+
+    static HGPUBuffer VulkanNewGPUBuffer(HContext context)
+    {
+        DeviceBuffer* buffer = new DeviceBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        return (HGPUBuffer) buffer;
+    }
+
+    static void VulkanSetGPUBufferData(HContext context, HGPUBuffer buffer, uint32_t size, const void* data)
+    {
+        if (size == 0)
+        {
+            return;
+        }
+
+        DeviceBuffer* buffer_ptr = (DeviceBuffer*) buffer;
+
+        if (!buffer_ptr->m_Destroyed)
+        {
+            DestroyResourceDeferred(g_VulkanContext->m_MainResourcesToDestroy[g_VulkanContext->m_SwapChain->m_ImageIndex], buffer_ptr);
+        }
+
+        DeviceBufferUploadHelper(g_VulkanContext, data, size, 0, buffer_ptr);
     }
 
     static void VulkanDispatchCompute(HContext context)
@@ -2093,11 +2174,11 @@ bail:
 
         VkCommandBuffer vk_command_buffer = context->m_MainCommandBuffers[image_ix];
 
-        DrawSetupCompute(context, vk_command_buffer);
+        DrawSetupCompute(context, vk_command_buffer, &context->m_MainScratchBuffers[image_ix]);
         vkCmdDispatch(vk_command_buffer, 1, 1, 1);
     }
 
-    static void CreateShaderResourceBindings(ShaderModule* shader, ShaderDesc::Shader* ddf, uint32_t dynamicAlignment)
+    static void CreateShaderResourceBindings(ShaderModule* shader, ShaderDesc::Shader* ddf, uint32_t uniformBufferAlignment, uint32_t storageBufferAlignment)
     {
         if (ddf->m_Uniforms.m_Count > 0)
         {
@@ -2106,6 +2187,7 @@ bail:
             uint32_t uniform_data_size_aligned = 0;
             uint32_t texture_sampler_count     = 0;
             uint32_t uniform_buffer_count      = 0;
+            uint32_t storage_buffer_count      = 0;
             int32_t  last_binding              = -1;
 
             for (uint32_t i=0; i < ddf->m_Uniforms.m_Count; i++)
@@ -2117,6 +2199,9 @@ bail:
                 res.m_ElementCount         = ddf->m_Uniforms[i].m_ElementCount;
                 res.m_Name                 = strdup(ddf->m_Uniforms[i].m_Name);
                 res.m_NameHash             = 0;
+                res.m_Ssbo                 = ddf->m_Uniforms[i].m_Ssbo;
+                res.m_UniformDataIndex     = 0;
+                res.m_TextureUnit          = 0;
 
                 assert(res.m_Set <= 1);
                 assert(res.m_Binding >= last_binding);
@@ -2127,16 +2212,21 @@ bail:
                     res.m_TextureUnit = 0;
                     texture_sampler_count++;
                 }
+                else if (IsUniformStorageBuffer(res))
+                {
+                    storage_buffer_count++;
+                }
                 else
                 {
                     res.m_UniformDataIndex     = uniform_buffer_count;
-                    uniform_data_size_aligned += DM_ALIGN(GetShaderTypeSize(res.m_Type) * res.m_ElementCount, dynamicAlignment);
+                    uniform_data_size_aligned += DM_ALIGN(GetShaderTypeSize(res.m_Type) * res.m_ElementCount, uniformBufferAlignment);
                     uniform_buffer_count++;
                 }
             }
 
             shader->m_UniformDataSizeAligned = uniform_data_size_aligned;
             shader->m_UniformBufferCount     = uniform_buffer_count;
+            shader->m_StorageBufferCount     = storage_buffer_count;
         }
 
         if (ddf->m_Attributes.m_Count > 0)
@@ -2166,7 +2256,9 @@ bail:
         memset(shader, 0, sizeof(*shader));
         VkResult res = CreateShaderModule(context->m_LogicalDevice.m_Device, ddf->m_Source.m_Data, ddf->m_Source.m_Count, shader);
         CHECK_VK_ERROR(res);
-        CreateShaderResourceBindings(shader, ddf, (uint32_t) context->m_PhysicalDevice.m_Properties.limits.minUniformBufferOffsetAlignment);
+        CreateShaderResourceBindings(shader, ddf,
+            (uint32_t) context->m_PhysicalDevice.m_Properties.limits.minUniformBufferOffsetAlignment,
+            (uint32_t) context->m_PhysicalDevice.m_Properties.limits.minStorageBufferOffsetAlignment);
         return (HVertexProgram) shader;
     }
 
@@ -2176,7 +2268,9 @@ bail:
         memset(shader, 0, sizeof(*shader));
         VkResult res = CreateShaderModule(context->m_LogicalDevice.m_Device, ddf->m_Source.m_Data, ddf->m_Source.m_Count, shader);
         CHECK_VK_ERROR(res);
-        CreateShaderResourceBindings(shader, ddf, (uint32_t) context->m_PhysicalDevice.m_Properties.limits.minUniformBufferOffsetAlignment);
+        CreateShaderResourceBindings(shader, ddf,
+            (uint32_t) context->m_PhysicalDevice.m_Properties.limits.minUniformBufferOffsetAlignment,
+            (uint32_t) context->m_PhysicalDevice.m_Properties.limits.minStorageBufferOffsetAlignment);
         return (HFragmentProgram) shader;
     }
 
@@ -2186,6 +2280,9 @@ bail:
         memset(shader, 0, sizeof(*shader));
         VkResult res = CreateShaderModule(context->m_LogicalDevice.m_Device, ddf->m_Source.m_Data, ddf->m_Source.m_Count, shader);
         CHECK_VK_ERROR(res);
+        CreateShaderResourceBindings(shader, ddf,
+            (uint32_t) context->m_PhysicalDevice.m_Properties.limits.minUniformBufferOffsetAlignment,
+            (uint32_t) context->m_PhysicalDevice.m_Properties.limits.minStorageBufferOffsetAlignment);
         return (HComputeProgram) shader;
     }
 
@@ -2209,6 +2306,10 @@ bail:
             {
                 vk_descriptor_type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             }
+            else if (IsUniformStorageBuffer(res))
+            {
+                vk_descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            }
             else
             {
                 assert(num_uniform_buffers < byte_offset_list_size);
@@ -2227,7 +2328,10 @@ bail:
             vk_desc.pImmutableSamplers            = 0;
         }
 
-        *byte_offset_end_out = byte_offset;
+        if (byte_offset_end_out)
+        {
+            *byte_offset_end_out = byte_offset;
+        }
     }
 
     static void CreateProgram(HContext context, Program* program, ShaderModule* compute_program)
@@ -2242,6 +2346,41 @@ bail:
 
         program->m_PipelineStageInfo[Program::MODULE_TYPE_COMPUTE] = vk_compute_shader_create_info;
         program->m_ComputeModule = compute_program;
+
+        const uint32_t num_uniforms = compute_program->m_UniformCount; // vertex_module->m_UniformCount + fragment_module->m_UniformCount;
+        if (num_uniforms > 0)
+        {
+            VkDescriptorSetLayoutBinding* vk_descriptor_set_bindings = new VkDescriptorSetLayoutBinding[num_uniforms];
+            const uint32_t num_buffers  = compute_program->m_UniformBufferCount ; //fragment_module->m_UniformBufferCount;
+            const uint32_t num_storage  = compute_program->m_StorageBufferCount;
+
+            if (num_buffers > 0)
+            {
+                program->m_UniformDataOffsets = new uint32_t[num_buffers];
+            }
+
+            CreateProgramUniforms(compute_program, VK_SHADER_STAGE_COMPUTE_BIT,
+                0, 0, 0, 0, vk_descriptor_set_bindings);
+
+            VkDescriptorSetLayoutCreateInfo vk_set_create_info;
+            memset(&vk_set_create_info, 0, sizeof(vk_set_create_info));
+
+            vk_set_create_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+            vk_set_create_info.pBindings    = vk_descriptor_set_bindings;
+            vk_set_create_info.bindingCount = compute_program->m_UniformCount;
+
+            vkCreateDescriptorSetLayout(context->m_LogicalDevice.m_Device,
+                &vk_set_create_info, 0, &program->m_Handle.m_DescriptorSetLayout[Program::MODULE_TYPE_COMPUTE]);
+
+            VkPipelineLayoutCreateInfo vk_layout_create_info;
+            memset(&vk_layout_create_info, 0, sizeof(vk_layout_create_info));
+            vk_layout_create_info.sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+            vk_layout_create_info.setLayoutCount = 1; // Program::MODULE_TYPE_COUNT;
+            vk_layout_create_info.pSetLayouts    = &program->m_Handle.m_DescriptorSetLayout[Program::MODULE_TYPE_COMPUTE];
+
+            vkCreatePipelineLayout(context->m_LogicalDevice.m_Device, &vk_layout_create_info, 0, &program->m_Handle.m_PipelineLayout);
+            delete[] vk_descriptor_set_bindings;
+        }
     }
 
     static void CreateProgram(HContext context, Program* program, ShaderModule* vertex_module, ShaderModule* fragment_module)
@@ -2329,7 +2468,7 @@ bail:
             VkPipelineLayoutCreateInfo vk_layout_create_info;
             memset(&vk_layout_create_info, 0, sizeof(vk_layout_create_info));
             vk_layout_create_info.sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-            vk_layout_create_info.setLayoutCount = Program::MODULE_TYPE_COUNT;
+            vk_layout_create_info.setLayoutCount = 2; // Program::MODULE_TYPE_COUNT;
             vk_layout_create_info.pSetLayouts    = program->m_Handle.m_DescriptorSetLayout;
 
             vkCreatePipelineLayout(context->m_LogicalDevice.m_Device, &vk_layout_create_info, 0, &program->m_Handle.m_PipelineLayout);
@@ -2407,7 +2546,9 @@ bail:
             // Transfer created module to old pointer and recreate resource bindings
             shader->m_Hash    = tmp_shader.m_Hash;
             shader->m_Module  = tmp_shader.m_Module;
-            CreateShaderResourceBindings(shader, ddf, (uint32_t) g_VulkanContext->m_PhysicalDevice.m_Properties.limits.minUniformBufferOffsetAlignment);
+            CreateShaderResourceBindings(shader, ddf,
+                (uint32_t) g_VulkanContext->m_PhysicalDevice.m_Properties.limits.minUniformBufferOffsetAlignment,
+                (uint32_t) g_VulkanContext->m_PhysicalDevice.m_Properties.limits.minStorageBufferOffsetAlignment);
             return true;
         }
 
@@ -3597,6 +3738,8 @@ bail:
         fn_table.m_DrawElements = VulkanDrawElements;
         fn_table.m_Draw = VulkanDraw;
         fn_table.m_DispatchCompute = VulkanDispatchCompute;
+        fn_table.m_NewGPUBuffer = VulkanNewGPUBuffer;
+        fn_table.m_SetGPUBufferData = VulkanSetGPUBufferData;
         fn_table.m_NewVertexProgram = VulkanNewVertexProgram;
         fn_table.m_NewFragmentProgram = VulkanNewFragmentProgram;
         fn_table.m_NewComputeProgram = VulkanNewComputeProgram;

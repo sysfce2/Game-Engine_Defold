@@ -670,6 +670,10 @@ namespace dmGraphics
     {
         g_functions.m_Draw(context, prim_type, first, count);
     }
+    HGPUBuffer NewGPUBuffer(HContext context)
+    {
+        return g_functions.m_NewGPUBuffer(context);
+    }
     void DispatchCompute(HContext context)
     {
         g_functions.m_DispatchCompute(context);
