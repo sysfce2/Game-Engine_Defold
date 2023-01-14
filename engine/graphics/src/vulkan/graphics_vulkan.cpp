@@ -1777,9 +1777,9 @@ bail:
             uniform_data_offsets = &program->m_UniformDataOffsets[program->m_VertexModule->m_UniformCount];
             dynamic_offsets      = &dynamic_offsets_out[program->m_VertexModule->m_UniformCount];
         }
-        else
+        else if (module_type == Program::MODULE_TYPE_COMPUTE)
         {
-            return;
+            shader_module = program->m_ComputeModule;
         }
 
         if (shader_module->m_UniformCount == 0)
@@ -1820,6 +1820,17 @@ bail:
                 vk_image_info.sampler             = g_VulkanContext->m_TextureSamplers[texture->m_TextureSamplerIndex].m_Sampler;
                 vk_write_desc_info.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
                 vk_write_desc_info.pImageInfo     = &vk_image_info;
+            }
+            else if (IsUniformStorageBuffer(res))
+            {
+
+                VkDescriptorBufferInfo& vk_buffer_info = vk_write_buffer_descriptors[buffer_to_write_index++];
+                vk_buffer_info.buffer = g_VulkanContext->m_GPUBuffer->m_Handle.m_Buffer;
+                vk_buffer_info.offset = 0;
+                vk_buffer_info.range  = VK_WHOLE_SIZE;
+
+                vk_write_desc_info.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                vk_write_desc_info.pBufferInfo    = &vk_buffer_info;
             }
             else
             {
@@ -2146,6 +2157,11 @@ bail:
     {
         DeviceBuffer* buffer = new DeviceBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
         return (HGPUBuffer) buffer;
+    }
+
+    static void VulkanSetGPUBuffer(HContext context, HGPUBuffer buffer)
+    {
+        context->m_GPUBuffer = (DeviceBuffer*) buffer;
     }
 
     static void VulkanSetGPUBufferData(HContext context, HGPUBuffer buffer, uint32_t size, const void* data)
@@ -3739,6 +3755,7 @@ bail:
         fn_table.m_Draw = VulkanDraw;
         fn_table.m_DispatchCompute = VulkanDispatchCompute;
         fn_table.m_NewGPUBuffer = VulkanNewGPUBuffer;
+        fn_table.m_SetGPUBuffer = VulkanSetGPUBuffer;
         fn_table.m_SetGPUBufferData = VulkanSetGPUBufferData;
         fn_table.m_NewVertexProgram = VulkanNewVertexProgram;
         fn_table.m_NewFragmentProgram = VulkanNewFragmentProgram;

@@ -204,7 +204,7 @@ namespace dmRender
                 }
                 case COMMAND_TYPE_SET_GPU_BUFFER:
                 {
-                    dmGraphics::SetGPUBuffer(context, (dmGraphics::HGPUBuffer) c->m_Operands[0], c->m_Operands[1]);
+                    dmGraphics::SetGPUBuffer(context, (dmGraphics::HGPUBuffer) c->m_Operands[0]);
                     break;
                 }
                 default:

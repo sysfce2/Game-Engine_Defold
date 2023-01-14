@@ -105,6 +105,7 @@ namespace dmGraphics
     typedef void (*DispatchComputeFn)(HContext context);
     typedef HGPUBuffer (*NewGPUBufferFn)(HContext context);
     typedef void (*SetGPUBufferDataFn)(HContext context, HGPUBuffer buffer, uint32_t size, const void* data);
+    typedef void (*SetGPUBufferFn)(HContext context, HGPUBuffer buffer);
     typedef HVertexProgram (*NewVertexProgramFn)(HContext context, ShaderDesc::Shader* ddf);
     typedef HFragmentProgram (*NewFragmentProgramFn)(HContext context, ShaderDesc::Shader* ddf);
     typedef HComputeProgram (*NewComputeProgramFn)(HContext context, ShaderDesc::Shader* ddf);
@@ -222,6 +223,7 @@ namespace dmGraphics
         DispatchComputeFn m_DispatchCompute;
         NewGPUBufferFn m_NewGPUBuffer;
         SetGPUBufferDataFn m_SetGPUBufferData;
+        SetGPUBufferFn m_SetGPUBuffer;
         NewVertexProgramFn m_NewVertexProgram;
         NewFragmentProgramFn m_NewFragmentProgram;
         NewComputeProgramFn m_NewComputeProgram;

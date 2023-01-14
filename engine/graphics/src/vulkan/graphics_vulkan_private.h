@@ -351,6 +351,7 @@ namespace dmGraphics
         Context(const ContextParams& params, const VkInstance vk_instance);
 
         Texture*                        m_TextureUnits[DM_MAX_TEXTURE_UNITS];
+        DeviceBuffer*                   m_GPUBuffer;
         PipelineCache                   m_PipelineCache;
         PipelineState                   m_PipelineState;
         SwapChain*                      m_SwapChain;

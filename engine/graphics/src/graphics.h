@@ -531,6 +531,7 @@ namespace dmGraphics
     HGPUBuffer NewGPUBuffer(HContext context);
 
     void SetGPUBufferData(HContext context, HGPUBuffer buffer, uint32_t size, const void* data);
+    void SetGPUBuffer(HContext context, HGPUBuffer buffer);
 
     HVertexProgram NewVertexProgram(HContext context, ShaderDesc::Shader* ddf);
     HFragmentProgram NewFragmentProgram(HContext context, ShaderDesc::Shader* ddf);

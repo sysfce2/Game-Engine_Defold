@@ -674,6 +674,14 @@ namespace dmGraphics
     {
         return g_functions.m_NewGPUBuffer(context);
     }
+    void SetGPUBuffer(HContext context, HGPUBuffer buffer)
+    {
+        return g_functions.m_SetGPUBuffer(context, buffer);
+    }
+    void SetGPUBufferData(HContext context, HGPUBuffer buffer, uint32_t size, const void* data)
+    {
+        g_functions.m_SetGPUBufferData(context, buffer, size, data);
+    }
     void DispatchCompute(HContext context)
     {
         g_functions.m_DispatchCompute(context);

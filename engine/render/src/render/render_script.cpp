@@ -22,6 +22,7 @@
 #include <dlib/hash.h>
 #include <dlib/message.h>
 #include <dlib/profile.h>
+#include <dlib/memory.h>
 
 #include <script/script.h>
 #include <script/lua_source_ddf.h>
@@ -2754,19 +2755,36 @@ namespace dmRender
         RenderScriptInstance* i = RenderScriptInstance_Check(L);
         dmGraphics::HGPUBuffer buf = dmGraphics::NewGPUBuffer(i->m_RenderContext->m_GraphicsContext);
         lua_pushlightuserdata(L, (void*) buf);
-        return 0;
+        return 1;
     }
 
     int RenderScript_SetBuffer(lua_State* L)
     {
         RenderScriptInstance* i = RenderScriptInstance_Check(L);
 
+        dmGraphics::HGPUBuffer buf = 0;
+
         if(lua_islightuserdata(L, 1))
         {
             buf = (dmGraphics::HGPUBuffer) lua_touserdata(L, 1);
         }
 
-        dmGraphics::SetGPUBufferData(i->m_RenderContext->m_GraphicsContext, buf, ptr, size);
+        luaL_checktype(L, 2, LUA_TTABLE);
+
+        uint32_t table_size = dmScript::CheckTableSize(L, 2);
+
+        char* buffer;
+        dmMemory::Result r = dmMemory::AlignedMalloc((void**) &buffer, 16, table_size);
+
+        if (!buffer)
+        {
+            return luaL_error(L, "Could not allocate %d bytes for table serialization.", table_size);
+        }
+        uint32_t n_used = dmScript::CheckTable(L, buffer, table_size, 2);
+
+        dmGraphics::SetGPUBufferData(i->m_RenderContext->m_GraphicsContext, buf, table_size, buffer);
+
+        dmMemory::AlignedFree(buffer);
 
         return 0;
     }
