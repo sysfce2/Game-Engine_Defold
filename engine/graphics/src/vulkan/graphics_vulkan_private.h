@@ -25,6 +25,7 @@ namespace dmGraphics
     const static uint8_t DM_MAX_SET_COUNT              = 2;
     const static uint8_t DM_MAX_TEXTURE_UNITS          = 32;
     const static uint8_t DM_RENDERTARGET_BACKBUFFER_ID = 0;
+    const static uint8_t MAX_VERTEX_DECLARATIONS       = 4;
 
     enum VulkanResourceType
     {
@@ -382,7 +383,7 @@ namespace dmGraphics
         // Rendering state
         RenderTarget*                   m_CurrentRenderTarget;
         DeviceBuffer*                   m_CurrentVertexBuffer;
-        VertexDeclaration*              m_CurrentVertexDeclaration;
+        VertexDeclaration*              m_CurrentVertexDeclaration[MAX_VERTEX_DECLARATIONS];
         Program*                        m_CurrentProgram;
         // Misc state
         TextureFilter                   m_DefaultTextureMinFilter;
@@ -401,7 +402,8 @@ namespace dmGraphics
         uint32_t                        m_CullFaceChanged      : 1;
         uint32_t                        m_UseValidationLayers  : 1;
         uint32_t                        m_RenderDocSupport     : 1;
-        uint32_t                                               : 24;
+        uint32_t                        m_CurrentVertexDeclarationCount : 2;
+        uint32_t                                               : 22;
     };
 
     // Implemented in graphics_vulkan_context.cpp
@@ -457,7 +459,7 @@ namespace dmGraphics
         const void* source, uint32_t sourceSize, ShaderModule* shaderModuleOut);
     VkResult CreatePipeline(VkDevice vk_device, VkRect2D vk_scissor, VkSampleCountFlagBits vk_sample_count,
         const PipelineState pipelineState, Program* program, DeviceBuffer* vertexBuffer,
-        HVertexDeclaration vertexDeclaration, RenderTarget* render_target, Pipeline* pipelineOut);
+        VertexDeclaration* vertexDeclaration, uint8_t vertexDeclarationCount, RenderTarget* render_target, Pipeline* pipelineOut);
     // Reset functions
     void           ResetScratchBuffer(VkDevice vk_device, ScratchBuffer* scratchBuffer);
     // Destroy funcions

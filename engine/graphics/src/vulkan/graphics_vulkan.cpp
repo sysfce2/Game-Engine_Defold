@@ -1374,13 +1374,16 @@ bail:
 
     static Pipeline* GetOrCreatePipeline(VkDevice vk_device, VkSampleCountFlagBits vk_sample_count,
         const PipelineState pipelineState, PipelineCache& pipelineCache,
-        Program* program, RenderTarget* rt, DeviceBuffer* vertexBuffer, HVertexDeclaration vertexDeclaration)
+        Program* program, RenderTarget* rt, DeviceBuffer* vertexBuffer, VertexDeclaration* vertexDeclaration, uint8_t vertexDeclarationCount)
     {
         HashState64 pipeline_hash_state;
         dmHashInit64(&pipeline_hash_state, false);
         dmHashUpdateBuffer64(&pipeline_hash_state, &program->m_Hash, sizeof(program->m_Hash));
         dmHashUpdateBuffer64(&pipeline_hash_state, &pipelineState, sizeof(pipelineState));
-        dmHashUpdateBuffer64(&pipeline_hash_state, &vertexDeclaration->m_Hash, sizeof(vertexDeclaration->m_Hash));
+        for (int i = 0; i < vertexDeclarationCount; ++i)
+        {
+            dmHashUpdateBuffer64(&pipeline_hash_state, &vertexDeclaration[i].m_Hash, sizeof(vertexDeclaration[i].m_Hash));
+        }
         dmHashUpdateBuffer64(&pipeline_hash_state, &rt->m_Id, sizeof(rt->m_Id));
         dmHashUpdateBuffer64(&pipeline_hash_state, &vk_sample_count, sizeof(vk_sample_count));
         uint64_t pipeline_hash = dmHashFinal64(&pipeline_hash_state);
@@ -1397,7 +1400,7 @@ bail:
             vk_scissor.offset.x = 0;
             vk_scissor.offset.y = 0;
 
-            VkResult res = CreatePipeline(vk_device, vk_scissor, vk_sample_count, pipelineState, program, vertexBuffer, vertexDeclaration, rt, &new_pipeline);
+            VkResult res = CreatePipeline(vk_device, vk_scissor, vk_sample_count, pipelineState, program, vertexBuffer, vertexDeclaration, vertexDeclarationCount, rt, &new_pipeline);
             CHECK_VK_ERROR(res);
 
             if (pipelineCache.Full())
@@ -1675,7 +1678,7 @@ bail:
     static void VulkanEnableVertexDeclaration(HContext context, HVertexDeclaration vertex_declaration, HVertexBuffer vertex_buffer)
     {
         context->m_CurrentVertexBuffer      = (DeviceBuffer*) vertex_buffer;
-        context->m_CurrentVertexDeclaration = (VertexDeclaration*) vertex_declaration;
+        context->m_CurrentVertexDeclaration[context->m_CurrentVertexDeclarationCount++] = (VertexDeclaration*) vertex_declaration;
     }
 
     static void VulkanEnableVertexDeclarationProgram(HContext context, HVertexDeclaration vertex_declaration, HVertexBuffer vertex_buffer, HProgram program)
@@ -1704,7 +1707,16 @@ bail:
 
     static void VulkanDisableVertexDeclaration(HContext context, HVertexDeclaration vertex_declaration)
     {
-        context->m_CurrentVertexDeclaration = 0;
+        VertexDeclaration* decl = (VertexDeclaration*) vertex_declaration;
+        uint32_t decl_count = context->m_CurrentVertexDeclarationCount;
+        for (int i = 0; i < decl_count; ++i)
+        {
+            if (context->m_CurrentVertexDeclaration[i] == decl)
+            {
+                context->m_CurrentVertexDeclaration[i] = 0;
+                context->m_CurrentVertexDeclarationCount--;
+            }
+        }
     }
 
     static inline bool IsUniformTextureSampler(ShaderResourceBinding uniform)
@@ -1982,7 +1994,7 @@ bail:
         Pipeline* pipeline = GetOrCreatePipeline(vk_device, vk_sample_count,
             context->m_PipelineState, context->m_PipelineCache,
             program_ptr, context->m_CurrentRenderTarget,
-            vertex_buffer, context->m_CurrentVertexDeclaration);
+            vertex_buffer, *context->m_CurrentVertexDeclaration, context->m_CurrentVertexDeclarationCount);
         vkCmdBindPipeline(vk_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
 
 

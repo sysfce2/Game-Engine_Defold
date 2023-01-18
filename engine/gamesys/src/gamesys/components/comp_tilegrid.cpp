@@ -642,8 +642,8 @@ namespace dmGameSystem
         world->m_VertexBufferWritePtr = CreateVertexData(world, vb_begin, texture_set, buf, begin, end);
 
         ro.Init();
-        ro.m_VertexDeclaration = world->m_VertexDeclaration;
-        ro.m_VertexBuffer = world->m_VertexBuffer;
+        ro.m_VertexDeclaration[0] = world->m_VertexDeclaration;
+        ro.m_VertexBuffer[0] = world->m_VertexBuffer;
         ro.m_PrimitiveType = dmGraphics::PRIMITIVE_TRIANGLES;
         ro.m_VertexStart = vb_begin - world->m_VertexBufferData;
         ro.m_VertexCount = (world->m_VertexBufferWritePtr - vb_begin);

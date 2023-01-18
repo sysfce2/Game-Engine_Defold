@@ -52,22 +52,26 @@ namespace dmGraphics
         memset(this, 0, sizeof(*this));
     }
 
-    static uint16_t FillVertexInputAttributeDesc(HVertexDeclaration vertexDeclaration, VkVertexInputAttributeDescription* vk_vertex_input_descs)
+    static uint16_t FillVertexInputAttributeDesc(VertexDeclaration* vertexDeclaration, uint8_t vertexDeclarationCount, VkVertexInputAttributeDescription* vk_vertex_input_descs)
     {
         uint16_t num_attributes = 0;
-        for (uint16_t i = 0; i < vertexDeclaration->m_StreamCount; ++i)
+
+        for (int i = 0; i < vertexDeclarationCount; ++i)
         {
-            if (vertexDeclaration->m_Streams[i].m_Location == 0xffff)
+            for (uint16_t j = 0; j < vertexDeclaration->m_StreamCount; ++j)
             {
-                continue;
+                if (vertexDeclaration->m_Streams[j].m_Location == 0xffff)
+                {
+                    continue;
+                }
+
+                vk_vertex_input_descs[num_attributes].binding  = j;
+                vk_vertex_input_descs[num_attributes].location = vertexDeclaration->m_Streams[j].m_Location;
+                vk_vertex_input_descs[num_attributes].format   = vertexDeclaration->m_Streams[j].m_Format;
+                vk_vertex_input_descs[num_attributes].offset   = vertexDeclaration->m_Streams[j].m_Offset;
+
+                num_attributes++;
             }
-
-            vk_vertex_input_descs[num_attributes].binding  = 0;
-            vk_vertex_input_descs[num_attributes].location = vertexDeclaration->m_Streams[i].m_Location;
-            vk_vertex_input_descs[num_attributes].format   = vertexDeclaration->m_Streams[i].m_Format;
-            vk_vertex_input_descs[num_attributes].offset   = vertexDeclaration->m_Streams[i].m_Offset;
-
-            num_attributes++;
         }
 
         return num_attributes;
@@ -899,27 +903,39 @@ bail:
 
     VkResult CreatePipeline(VkDevice vk_device, VkRect2D vk_scissor, VkSampleCountFlagBits vk_sample_count,
         PipelineState pipelineState, Program* program, DeviceBuffer* vertexBuffer,
-        HVertexDeclaration vertexDeclaration, RenderTarget* render_target, Pipeline* pipelineOut)
+        VertexDeclaration* vertexDeclaration, uint8_t vertexDeclarationCount, RenderTarget* render_target, Pipeline* pipelineOut)
     {
         assert(pipelineOut && *pipelineOut == VK_NULL_HANDLE);
 
         VkVertexInputAttributeDescription vk_vertex_input_descs[MAX_VERTEX_STREAM_COUNT];
-        uint16_t active_attributes = FillVertexInputAttributeDesc(vertexDeclaration, vk_vertex_input_descs);
+        uint16_t active_attributes = FillVertexInputAttributeDesc(vertexDeclaration, vertexDeclarationCount, vk_vertex_input_descs);
         assert(active_attributes != 0);
 
+        VkVertexInputBindingDescription vk_vx_input_description[MAX_VERTEX_DECLARATIONS];
+        memset(&vk_vx_input_description, 0, sizeof(vk_vx_input_description));
+
+        for (int i = 0; i < vertexDeclarationCount; ++i)
+        {
+            vk_vx_input_description[i].binding   = i;
+            vk_vx_input_description[i].stride    = vertexDeclaration[i].m_Stride;
+            vk_vx_input_description[i].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        }
+
+        /*
         VkVertexInputBindingDescription vk_vx_input_description;
         memset(&vk_vx_input_description, 0, sizeof(vk_vx_input_description));
 
         vk_vx_input_description.binding   = 0;
         vk_vx_input_description.stride    = vertexDeclaration->m_Stride;
         vk_vx_input_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        */
 
         VkPipelineVertexInputStateCreateInfo vk_vertex_input_info;
         memset(&vk_vertex_input_info, 0, sizeof(vk_vertex_input_info));
 
         vk_vertex_input_info.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        vk_vertex_input_info.vertexBindingDescriptionCount   = 1;
-        vk_vertex_input_info.pVertexBindingDescriptions      = &vk_vx_input_description;
+        vk_vertex_input_info.vertexBindingDescriptionCount   = vertexDeclarationCount;
+        vk_vertex_input_info.pVertexBindingDescriptions      = vk_vx_input_description;
         vk_vertex_input_info.vertexAttributeDescriptionCount = active_attributes;
         vk_vertex_input_info.pVertexAttributeDescriptions    = vk_vertex_input_descs;
 

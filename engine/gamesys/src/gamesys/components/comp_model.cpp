@@ -142,8 +142,8 @@ namespace dmGameSystem
         dmGraphics::HContext graphics_context = dmRender::GetGraphicsContext(render_context);
 
         dmGraphics::HVertexStreamDeclaration stream_declaration_skin = dmGraphics::NewVertexStreamDeclaration(graphics_context);
-        dmGraphics::AddVertexStream(stream_declaration, "blend_indices", 4, dmGraphics::TYPE_FLOAT, false);
-        dmGraphics::AddVertexStream(stream_declaration, "blend_weights", 4, dmGraphics::TYPE_FLOAT, false);
+        dmGraphics::AddVertexStream(stream_declaration_skin, "blend_indices", 4, dmGraphics::TYPE_FLOAT, false);
+        dmGraphics::AddVertexStream(stream_declaration_skin, "blend_weights", 4, dmGraphics::TYPE_FLOAT, false);
         world->m_SkinVertexDeclaration = dmGraphics::NewVertexDeclaration(graphics_context, stream_declaration_skin);
         dmGraphics::DeleteVertexStreamDeclaration(stream_declaration_skin);
 
@@ -552,11 +552,11 @@ namespace dmGameSystem
         {
             const MeshRenderItem* render_item = (MeshRenderItem*) buf[*i].m_UserData;
             const ModelResourceBuffers* buffers = render_item->m_Buffers;
-            const ModelComponent* component = render_item->m_Component;
+            ModelComponent* component = render_item->m_Component;
 
             if (component->m_RigInstance)
             {
-                uint32_t bone_count = dmRig::GetBoneCount(c->m_RigInstance);
+                uint32_t bone_count = dmRig::GetBoneCount(component->m_RigInstance);
 
                 if (bone_matrices.Size() < bone_count)
                 {
@@ -564,9 +564,14 @@ namespace dmGameSystem
                     bone_matrices.SetSize(bone_count);
                 }
 
-                dmRig::GeneratePoseMatrices(world->m_RigContext, c->m_RigInstance, render_item->m_Mesh, bone_matrices->m_Begin());
+                dmRig::GeneratePoseMatrices(world->m_RigContext, component->m_RigInstance, render_item->m_Mesh, bone_matrices.Begin());
 
-                SetRenderConstant(component->m_RenderConstants, bone_matrix_hash, (dmVMath::Vector4*) bone_matrices->m_Begin(), bone_count * 4 * sizeof(dmVMath::Vector4));
+                if (!component->m_RenderConstants)
+                {
+                    component->m_RenderConstants = dmGameSystem::CreateRenderConstants();
+                }
+
+                SetRenderConstant(component->m_RenderConstants, bone_matrix_hash, (dmVMath::Vector4*) bone_matrices.Begin(), bone_count * 4);
             }
 
             uint32_t material_index = render_item->m_MaterialIndex;
