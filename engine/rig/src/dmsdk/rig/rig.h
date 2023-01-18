@@ -165,6 +165,8 @@ namespace dmRig
     Result CancelAnimation(HRigInstance instance);
     dmhash_t GetAnimation(HRigInstance instance);
 
+    dmVMath::Matrix4* GeneratePoseMatrices(dmRig::HRigContext context, dmRig::HRigInstance instance, dmRigDDF::Mesh* mesh, dmVMath::Matrix4* bone_matrices);
+
     // Returns the new position in the array
     RigModelVertex* GenerateVertexData(HRigContext context, dmRig::HRigInstance instance, dmRigDDF::Mesh* mesh, const dmVMath::Matrix4& world_matrix, RigModelVertex* vertex_data_out);
     uint32_t GetVertexCount(HRigInstance instance);

@@ -444,8 +444,8 @@ namespace dmRender
             ro.m_SourceBlendFactor = dmGraphics::BLEND_FACTOR_SRC_ALPHA;
             ro.m_DestinationBlendFactor = dmGraphics::BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
             ro.m_SetBlendFactors = 1;
-            ro.m_VertexBuffer = text_context.m_VertexBuffer;
-            ro.m_VertexDeclaration = text_context.m_VertexDecl;
+            ro.m_VertexBuffer[0] = text_context.m_VertexBuffer;
+            ro.m_VertexDeclaration[0] = text_context.m_VertexDecl;
             ro.m_PrimitiveType = dmGraphics::PRIMITIVE_TRIANGLES;
             text_context.m_RenderObjects.Push(ro);
             text_context.m_ConstantBuffers.Push(dmRender::NewNamedConstantBuffer());

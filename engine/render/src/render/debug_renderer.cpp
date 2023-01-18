@@ -105,8 +105,8 @@ namespace dmRender
             RenderObject ro;
             ro.m_Material = materials[i];
             ro.m_PrimitiveType = primitive_types[i];
-            ro.m_VertexBuffer = debug_renderer.m_VertexBuffer;
-            ro.m_VertexDeclaration = debug_renderer.m_VertexDeclaration;
+            ro.m_VertexBuffer[0] = debug_renderer.m_VertexBuffer;
+            ro.m_VertexDeclaration[0] = debug_renderer.m_VertexDeclaration;
             ro.m_VertexCount = 0;
             DebugRenderTypeData& type_data = debug_renderer.m_TypeData[i];
             type_data.m_RenderObject = ro;

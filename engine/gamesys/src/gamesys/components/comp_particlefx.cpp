@@ -288,8 +288,8 @@ namespace dmGameSystem
         ro.m_Textures[0] = (dmGraphics::HTexture)first->m_Texture;
         ro.m_VertexStart = vb_begin - vertex_buffer.Begin();
         ro.m_VertexCount = ro_vertex_count;
-        ro.m_VertexBuffer = pfx_world->m_VertexBuffer;
-        ro.m_VertexDeclaration = pfx_world->m_VertexDeclaration;
+        ro.m_VertexBuffer[0] = pfx_world->m_VertexBuffer;
+        ro.m_VertexDeclaration[0] = pfx_world->m_VertexDeclaration;
         ro.m_PrimitiveType = dmGraphics::PRIMITIVE_TRIANGLES;
         ro.m_SetBlendFactors = 1;
         SetBlendFactors(&ro, first->m_BlendMode);

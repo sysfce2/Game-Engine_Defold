@@ -841,14 +841,26 @@ namespace dmRender
 
             }
 
-            dmGraphics::EnableVertexDeclaration(context, ro->m_VertexDeclaration, ro->m_VertexBuffer, GetMaterialProgram(material));
+            for (int i = 0; i < RenderObject::MAX_VERTEX_BUFFER_COUNT; ++i)
+            {
+                if (ro->m_VertexBuffer[i] && ro->m_VertexDeclaration[i])
+                {
+                    dmGraphics::EnableVertexDeclaration(context, ro->m_VertexDeclaration[i], ro->m_VertexBuffer[i], GetMaterialProgram(material));
+                }
+            }
 
             if (ro->m_IndexBuffer)
                 dmGraphics::DrawElements(context, ro->m_PrimitiveType, ro->m_VertexStart, ro->m_VertexCount, ro->m_IndexType, ro->m_IndexBuffer);
             else
                 dmGraphics::Draw(context, ro->m_PrimitiveType, ro->m_VertexStart, ro->m_VertexCount);
 
-            dmGraphics::DisableVertexDeclaration(context, ro->m_VertexDeclaration);
+            for (int i = 0; i < RenderObject::MAX_VERTEX_BUFFER_COUNT; ++i)
+            {
+                if (ro->m_VertexBuffer[i] && ro->m_VertexDeclaration[i])
+                {
+                    dmGraphics::DisableVertexDeclaration(context, ro->m_VertexDeclaration[i]);
+                }
+            }
 
             for (uint32_t i = 0; i < RenderObject::MAX_TEXTURE_COUNT; ++i)
             {

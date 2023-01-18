@@ -1013,8 +1013,8 @@ namespace dmGameSystem
         gro.m_SortOrder = gui_context->m_NextSortOrder++;
 
         ro.Init();
-        ro.m_VertexDeclaration = gui_world->m_VertexDeclaration;
-        ro.m_VertexBuffer = gui_world->m_VertexBuffer;
+        ro.m_VertexDeclaration[0] = gui_world->m_VertexDeclaration;
+        ro.m_VertexBuffer[0] = gui_world->m_VertexBuffer;
         ro.m_PrimitiveType = dmGraphics::PRIMITIVE_TRIANGLES;
         ro.m_VertexStart = gui_world->m_ClientVertexBuffer.Size();
         ro.m_Material = gui_context->m_Material;
@@ -1198,8 +1198,8 @@ namespace dmGameSystem
         }
 
         ro.Init();
-        ro.m_VertexDeclaration = gui_world->m_VertexDeclaration;
-        ro.m_VertexBuffer = gui_world->m_VertexBuffer;
+        ro.m_VertexDeclaration[0] = gui_world->m_VertexDeclaration;
+        ro.m_VertexBuffer[0] = gui_world->m_VertexBuffer;
         ro.m_PrimitiveType = dmGraphics::PRIMITIVE_TRIANGLES;
         ro.m_VertexStart = vertex_start;
         ro.m_VertexCount = vertex_count;
@@ -1253,8 +1253,8 @@ namespace dmGameSystem
         dmGui::BlendMode blend_mode = dmGui::GetNodeBlendMode(scene, first_node);
         SetBlendMode(ro, blend_mode);
         ro.m_SetBlendFactors = 1;
-        ro.m_VertexDeclaration = gui_world->m_VertexDeclaration;
-        ro.m_VertexBuffer = gui_world->m_VertexBuffer;
+        ro.m_VertexDeclaration[0] = gui_world->m_VertexDeclaration;
+        ro.m_VertexBuffer[0] = gui_world->m_VertexBuffer;
         ro.m_PrimitiveType = dmGraphics::PRIMITIVE_TRIANGLES;
         ro.m_VertexStart = gui_world->m_ClientVertexBuffer.Size();
         ro.m_Material = gui_context->m_Material;
@@ -1551,8 +1551,8 @@ namespace dmGameSystem
         dmGui::BlendMode blend_mode = dmGui::GetNodeBlendMode(scene, first_node);
         SetBlendMode(ro, blend_mode);
         ro.m_SetBlendFactors = 1;
-        ro.m_VertexDeclaration = gui_world->m_VertexDeclaration;
-        ro.m_VertexBuffer = gui_world->m_VertexBuffer;
+        ro.m_VertexDeclaration[0] = gui_world->m_VertexDeclaration;
+        ro.m_VertexBuffer[0] = gui_world->m_VertexBuffer;
         ro.m_PrimitiveType = dmGraphics::PRIMITIVE_TRIANGLE_STRIP;
         ro.m_VertexStart = gui_world->m_ClientVertexBuffer.Size();
         ro.m_VertexCount = 0;

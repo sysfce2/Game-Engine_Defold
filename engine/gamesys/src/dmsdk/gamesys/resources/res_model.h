@@ -29,6 +29,7 @@ namespace dmGameSystem
     struct ModelResourceBuffers
     {
         dmGraphics::HVertexBuffer   m_VertexBuffer;
+        dmGraphics::HVertexBuffer   m_SkinVertexBuffer;
         dmGraphics::HIndexBuffer    m_IndexBuffer;
         uint32_t                    m_VertexCount;
         uint32_t                    m_IndexCount;

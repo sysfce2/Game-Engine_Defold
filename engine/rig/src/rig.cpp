@@ -1002,6 +1002,38 @@ namespace dmRig
         array.SetSize(size);
     }
 
+    Matrix4* GeneratePoseMatrices(dmRig::HRigContext context, dmRig::HRigInstance instance, dmRigDDF::Mesh* mesh, Matrix4* bone_matrices)
+    {
+        dmArray<Matrix4>& pose_matrices = context->m_ScratchPoseMatrixBuffer;
+        uint32_t bone_count = GetBoneCount(instance);
+        if (bone_count)
+        {
+            // Make sure pose scratch buffers have enough space
+            if (pose_matrices.Capacity() < bone_count) {
+                uint32_t size_offset = bone_count - pose_matrices.Capacity();
+                pose_matrices.OffsetCapacity(size_offset);
+            }
+            pose_matrices.SetSize(bone_count);
+
+            PoseToMatrix(instance->m_Pose, pose_matrices);
+
+            // Premultiply pose matrices with the bind pose inverse so they
+            // can be directly be used to transform each vertex.
+            const dmArray<RigBone>& bind_pose = *instance->m_BindPose;
+            for (uint32_t bi = 0; bi < pose_matrices.Size(); ++bi)
+            {
+                Matrix4& pose_matrix = pose_matrices[bi];
+                pose_matrix = pose_matrix * bind_pose[bi].m_ModelToLocal;
+            }
+
+            memcpy(bone_matrices, pose_matrices.Begin(), bone_count);
+        } else {
+            pose_matrices.SetSize(0);
+        }
+
+        return bone_matrices + bone_count;
+    }
+
     RigModelVertex* GenerateVertexData(dmRig::HRigContext context, dmRig::HRigInstance instance, dmRigDDF::Mesh* mesh, const Matrix4& world_matrix, RigModelVertex* vertex_data_out)
     {
         // TODO: Separate out the instance part.

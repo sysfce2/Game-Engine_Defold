@@ -488,8 +488,8 @@ namespace dmGameSystem
         HComponentRenderConstants constants)
     {
         ro.Init();
-        ro.m_VertexDeclaration = vert_decl;
-        ro.m_VertexBuffer = vert_buffer;
+        ro.m_VertexDeclaration[0] = vert_decl;
+        ro.m_VertexBuffer[0] = vert_buffer;
         ro.m_Material = material;
         ro.m_PrimitiveType = primitive_type;
         ro.m_VertexStart = vert_start;

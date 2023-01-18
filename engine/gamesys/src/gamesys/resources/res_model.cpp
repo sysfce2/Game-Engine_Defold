@@ -63,7 +63,13 @@ namespace dmGameSystem
         std::sort(resource->m_Meshes.Begin(), resource->m_Meshes.End(), MeshSortPred());
     }
 
-    static dmRig::RigModelVertex* CreateVertexData(const dmRigDDF::Mesh* mesh, dmRig::RigModelVertex* out_write_ptr)
+    struct SkinVertex
+    {
+        float m_Weights[4];
+        float m_Indices[4];
+    };
+
+    static dmRig::RigModelVertex* CreateVertexData(const dmRigDDF::Mesh* mesh, dmRig::RigModelVertex* out_write_ptr, SkinVertex* skin_write_ptr)
     {
         uint32_t vertex_count = mesh->m_Positions.m_Count / 3;
 
@@ -73,6 +79,9 @@ namespace dmGameSystem
         const float* colors = mesh->m_Colors.m_Count ? mesh->m_Colors.m_Data : 0;
         const float* uv0 = mesh->m_Texcoord0.m_Count ? mesh->m_Texcoord0.m_Data : 0;
         const float* uv1 = mesh->m_Texcoord1.m_Count ? mesh->m_Texcoord1.m_Data : 0;
+
+        const float* weights = mesh->m_Weights.m_Count ? mesh->m_Weights.m_Data : 0;
+        const uint32_t* indices = mesh->m_BoneIndices.m_Count ? mesh->m_BoneIndices.m_Data : 0;
 
         for (uint32_t i = 0; i < vertex_count; ++i)
         {
@@ -94,7 +103,18 @@ namespace dmGameSystem
                 out_write_ptr->uv1[c] = uv1 ? *uv1++ : 0.0f;
             }
 
+            for (int c = 0; c < 4; ++c)
+            {
+                skin_write_ptr->m_Weights[c] = weights ? *weights : 0.0f;
+            }
+
+            for (int c = 0; c < 4; ++c)
+            {
+                skin_write_ptr->m_Indices[c] = indices ? (float) *indices : 0.0f;
+            }
+
             out_write_ptr++;
+            skin_write_ptr++;
         }
 
         return out_write_ptr;
@@ -129,8 +149,13 @@ namespace dmGameSystem
             scratch_buffer.SetCapacity(num_vertices);
         scratch_buffer.SetSize(num_vertices);
 
-        CreateVertexData(ddf_mesh, scratch_buffer.Begin());
+        dmArray<SkinVertex> scratch_buffer_skin;
+        scratch_buffer_skin.SetCapacity(num_vertices);
+        scratch_buffer_skin.SetSize(num_vertices);
 
+        CreateVertexData(ddf_mesh, scratch_buffer.Begin(), scratch_buffer_skin.Begin());
+
+        buffers->m_SkinVertexBuffer = dmGraphics::NewVertexBuffer(context, num_vertices * sizeof(SkinVertex), scratch_buffer_skin.Begin(), dmGraphics::BUFFER_USAGE_STATIC_DRAW);
         buffers->m_VertexBuffer = dmGraphics::NewVertexBuffer(context, num_vertices * sizeof(dmRig::RigModelVertex), scratch_buffer.Begin(), dmGraphics::BUFFER_USAGE_STATIC_DRAW);
         buffers->m_VertexCount = num_vertices;
 
@@ -238,14 +263,14 @@ namespace dmGameSystem
         }
         memcpy(resource->m_Textures, textures, sizeof(dmGraphics::HTexture) * dmRender::RenderObject::MAX_TEXTURE_COUNT);
 
-        if(resource->m_RigScene->m_AnimationSetRes || resource->m_RigScene->m_SkeletonRes)
-        {
-            if (!AreAllMaterialsWorldSpace(resource))
-            {
-                dmLogError("Failed to create Model component. Material vertex space option VERTEX_SPACE_LOCAL does not support skinning.");
-                return dmResource::RESULT_NOT_SUPPORTED;
-            }
-        }
+        //if(resource->m_RigScene->m_AnimationSetRes || resource->m_RigScene->m_SkeletonRes)
+        //{
+        //    if (!AreAllMaterialsWorldSpace(resource))
+        //    {
+        //        dmLogError("Failed to create Model component. Material vertex space option VERTEX_SPACE_LOCAL does not support skinning.");
+        //        return dmResource::RESULT_NOT_SUPPORTED;
+        //    }
+        //}
 
         return result;
     }

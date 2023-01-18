@@ -96,6 +96,7 @@ namespace dmGameSystem
         dmObjectPool<ModelComponent*>   m_Components;
         dmArray<dmRender::RenderObject> m_RenderObjects;
         dmGraphics::HVertexDeclaration  m_VertexDeclaration;
+        dmGraphics::HVertexDeclaration  m_SkinVertexDeclaration;
         dmGraphics::HVertexBuffer*      m_VertexBuffers;
         dmArray<dmRig::RigModelVertex>* m_VertexBufferData;
         // Temporary scratch array for instances, only used during the creation phase of components
@@ -139,6 +140,13 @@ namespace dmGameSystem
         DM_STATIC_ASSERT( sizeof(dmRig::RigModelVertex) == ((3+3+3+4+2+2)*4), Invalid_Struct_Size);
 
         dmGraphics::HContext graphics_context = dmRender::GetGraphicsContext(render_context);
+
+        dmGraphics::HVertexStreamDeclaration stream_declaration_skin = dmGraphics::NewVertexStreamDeclaration(graphics_context);
+        dmGraphics::AddVertexStream(stream_declaration, "blend_indices", 4, dmGraphics::TYPE_FLOAT, false);
+        dmGraphics::AddVertexStream(stream_declaration, "blend_weights", 4, dmGraphics::TYPE_FLOAT, false);
+        world->m_SkinVertexDeclaration = dmGraphics::NewVertexDeclaration(graphics_context, stream_declaration_skin);
+        dmGraphics::DeleteVertexStreamDeclaration(stream_declaration_skin);
+
         dmGraphics::HVertexStreamDeclaration stream_declaration = dmGraphics::NewVertexStreamDeclaration(graphics_context);
         dmGraphics::AddVertexStream(stream_declaration, "position",  3, dmGraphics::TYPE_FLOAT, false);
         dmGraphics::AddVertexStream(stream_declaration, "normal",    3, dmGraphics::TYPE_FLOAT, false);
@@ -536,11 +544,31 @@ namespace dmGameSystem
     {
         DM_PROFILE("RenderBatchLocal");
 
+        dmArray<Matrix4> bone_matrices;
+
+        dmhash_t bone_matrix_hash = dmHashString64("bone_matrices");
+
         for (uint32_t *i=begin;i!=end;i++)
         {
             const MeshRenderItem* render_item = (MeshRenderItem*) buf[*i].m_UserData;
             const ModelResourceBuffers* buffers = render_item->m_Buffers;
             const ModelComponent* component = render_item->m_Component;
+
+            if (component->m_RigInstance)
+            {
+                uint32_t bone_count = dmRig::GetBoneCount(c->m_RigInstance);
+
+                if (bone_matrices.Size() < bone_count)
+                {
+                    bone_matrices.SetCapacity(bone_count);
+                    bone_matrices.SetSize(bone_count);
+                }
+
+                dmRig::GeneratePoseMatrices(world->m_RigContext, c->m_RigInstance, render_item->m_Mesh, bone_matrices->m_Begin());
+
+                SetRenderConstant(component->m_RenderConstants, bone_matrix_hash, (dmVMath::Vector4*) bone_matrices->m_Begin(), bone_count * 4 * sizeof(dmVMath::Vector4));
+            }
+
             uint32_t material_index = render_item->m_MaterialIndex;
 
             // We currently have no support for instancing, so we generate a separate draw call for each render item
@@ -548,8 +576,10 @@ namespace dmGameSystem
             dmRender::RenderObject& ro = world->m_RenderObjects.Back();
 
             ro.Init();
-            ro.m_VertexDeclaration = world->m_VertexDeclaration;
-            ro.m_VertexBuffer = buffers->m_VertexBuffer;
+            ro.m_VertexDeclaration[0] = world->m_VertexDeclaration;
+            ro.m_VertexDeclaration[1] = world->m_SkinVertexDeclaration;
+            ro.m_VertexBuffer[0] = buffers->m_VertexBuffer;
+            ro.m_VertexBuffer[1] = buffers->m_SkinVertexBuffer;
             ro.m_Material = GetMaterial(component, component->m_Resource, material_index);
             ro.m_PrimitiveType = dmGraphics::PRIMITIVE_TRIANGLES;
 
@@ -635,8 +665,8 @@ namespace dmGameSystem
         uint32_t material_index = render_item->m_MaterialIndex;
 
         ro.Init();
-        ro.m_VertexDeclaration = world->m_VertexDeclaration;
-        ro.m_VertexBuffer = gfx_vertex_buffer;
+        ro.m_VertexDeclaration[0] = world->m_VertexDeclaration;
+        ro.m_VertexBuffer[0] = gfx_vertex_buffer;
         ro.m_PrimitiveType = dmGraphics::PRIMITIVE_TRIANGLES;
         ro.m_VertexStart = vb_begin - vertex_buffer.Begin();
         ro.m_VertexCount = vb_end - vb_begin;

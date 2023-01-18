@@ -747,8 +747,8 @@ namespace dmGameSystem
         sprite_world->m_IndexBufferWritePtr = ib_iter;
 
         ro.Init();
-        ro.m_VertexDeclaration = sprite_world->m_VertexDeclaration;
-        ro.m_VertexBuffer = sprite_world->m_VertexBuffer;
+        ro.m_VertexDeclaration[0] = sprite_world->m_VertexDeclaration;
+        ro.m_VertexBuffer[0] = sprite_world->m_VertexBuffer;
         ro.m_IndexBuffer = sprite_world->m_IndexBuffer;
         ro.m_Material = GetMaterial(first, resource);
         ro.m_Textures[0] = texture_set->m_Texture;
