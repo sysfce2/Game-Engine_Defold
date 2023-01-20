@@ -65,8 +65,8 @@ namespace dmGameSystem
 
     struct SkinVertex
     {
-        float m_Weights[4];
         float m_Indices[4];
+        float m_Weights[4];
     };
 
     static dmRig::RigModelVertex* CreateVertexData(const dmRigDDF::Mesh* mesh, dmRig::RigModelVertex* out_write_ptr, SkinVertex* skin_write_ptr)
@@ -105,12 +105,12 @@ namespace dmGameSystem
 
             for (int c = 0; c < 4; ++c)
             {
-                skin_write_ptr->m_Weights[c] = weights ? *weights : 0.0f;
+                skin_write_ptr->m_Weights[c] = weights ? *weights++ : 0.0f;
             }
 
             for (int c = 0; c < 4; ++c)
             {
-                skin_write_ptr->m_Indices[c] = indices ? (float) *indices : 0.0f;
+                skin_write_ptr->m_Indices[c] = indices ? (float) *indices++ : 0.0f;
             }
 
             out_write_ptr++;

@@ -457,13 +457,16 @@ public abstract class ShaderProgramBuilder extends Builder<ShaderPreprocessor> {
 
         // Build uniforms
         for (SPIRVReflector.Resource res : compile_res.resource_list) {
-            ShaderDesc.ResourceBinding.Builder resourceBindingBuilder = ShaderDesc.ResourceBinding.newBuilder();
-            resourceBindingBuilder.setName(res.name);
-            resourceBindingBuilder.setType(Common.stringTypeToShaderType(res.type));
-            resourceBindingBuilder.setElementCount(res.elementCount);
-            resourceBindingBuilder.setSet(res.set);
-            resourceBindingBuilder.setBinding(res.binding);
-            builder.addUniforms(resourceBindingBuilder);
+            if (res.binding != 0)
+            {
+                ShaderDesc.ResourceBinding.Builder resourceBindingBuilder = ShaderDesc.ResourceBinding.newBuilder();
+                resourceBindingBuilder.setName(res.name);
+                resourceBindingBuilder.setType(Common.stringTypeToShaderType(res.type));
+                resourceBindingBuilder.setElementCount(res.elementCount);
+                resourceBindingBuilder.setSet(res.set);
+                resourceBindingBuilder.setBinding(res.binding);
+                builder.addUniforms(resourceBindingBuilder);
+            }
         }
 
         return builder;

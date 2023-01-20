@@ -1026,7 +1026,7 @@ namespace dmRig
                 pose_matrix = pose_matrix * bind_pose[bi].m_ModelToLocal;
             }
 
-            memcpy(bone_matrices, pose_matrices.Begin(), bone_count);
+            memcpy(bone_matrices, pose_matrices.Begin(), bone_count * sizeof(Matrix4));
         } else {
             pose_matrices.SetSize(0);
         }

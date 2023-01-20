@@ -1377,7 +1377,7 @@ bail:
 
     static Pipeline* GetOrCreatePipeline(VkDevice vk_device, VkSampleCountFlagBits vk_sample_count,
         const PipelineState pipelineState, PipelineCache& pipelineCache,
-        Program* program, RenderTarget* rt, DeviceBuffer* vertexBuffer, VertexDeclaration** vertexDeclaration, uint8_t vertexDeclarationCount)
+        Program* program, RenderTarget* rt, VertexDeclaration** vertexDeclaration, uint8_t vertexDeclarationCount)
     {
         HashState64 pipeline_hash_state;
         dmHashInit64(&pipeline_hash_state, false);
@@ -1403,7 +1403,7 @@ bail:
             vk_scissor.offset.x = 0;
             vk_scissor.offset.y = 0;
 
-            VkResult res = CreatePipeline(vk_device, vk_scissor, vk_sample_count, pipelineState, program, vertexBuffer, vertexDeclaration, vertexDeclarationCount, rt, &new_pipeline);
+            VkResult res = CreatePipeline(vk_device, vk_scissor, vk_sample_count, pipelineState, program, vertexDeclaration, vertexDeclarationCount, rt, &new_pipeline);
             CHECK_VK_ERROR(res);
 
             if (pipelineCache.Full())
@@ -1680,8 +1680,9 @@ bail:
 
     static void VulkanEnableVertexDeclaration(HContext context, HVertexDeclaration vertex_declaration, HVertexBuffer vertex_buffer)
     {
-        context->m_CurrentVertexBuffer      = (DeviceBuffer*) vertex_buffer;
-        context->m_CurrentVertexDeclaration[context->m_CurrentVertexDeclarationCount++] = (VertexDeclaration*) vertex_declaration;
+        context->m_CurrentVertexBuffer[context->m_CurrentVertexDeclarationCount]      = (DeviceBuffer*) vertex_buffer;
+        context->m_CurrentVertexDeclaration[context->m_CurrentVertexDeclarationCount] = (VertexDeclaration*) vertex_declaration;
+        context->m_CurrentVertexDeclarationCount++;
     }
 
     static void VulkanEnableVertexDeclarationProgram(HContext context, HVertexDeclaration vertex_declaration, HVertexBuffer vertex_buffer, HProgram program)
@@ -1711,8 +1712,7 @@ bail:
     static void VulkanDisableVertexDeclaration(HContext context, HVertexDeclaration vertex_declaration)
     {
         VertexDeclaration* decl = (VertexDeclaration*) vertex_declaration;
-        uint32_t decl_count = context->m_CurrentVertexDeclarationCount;
-        for (int i = 0; i < decl_count; ++i)
+        for (int i = 0; i < MAX_VERTEX_DECLARATIONS; ++i)
         {
             if (context->m_CurrentVertexDeclaration[i] == decl)
             {
@@ -1892,7 +1892,6 @@ bail:
 
     static void DrawSetup(HContext context, VkCommandBuffer vk_command_buffer, ScratchBuffer* scratchBuffer, DeviceBuffer* indexBuffer, Type indexBufferType)
     {
-        DeviceBuffer* vertex_buffer = context->m_CurrentVertexBuffer;
         Program* program_ptr        = context->m_CurrentProgram;
         VkDevice vk_device          = context->m_LogicalDevice.m_Device;
 
@@ -1996,8 +1995,7 @@ bail:
 
         Pipeline* pipeline = GetOrCreatePipeline(vk_device, vk_sample_count,
             context->m_PipelineState, context->m_PipelineCache,
-            program_ptr, context->m_CurrentRenderTarget,
-            vertex_buffer, context->m_CurrentVertexDeclaration, context->m_CurrentVertexDeclarationCount);
+            program_ptr, context->m_CurrentRenderTarget, context->m_CurrentVertexDeclaration, context->m_CurrentVertexDeclarationCount);
         vkCmdBindPipeline(vk_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
 
 
@@ -2015,10 +2013,18 @@ bail:
             vkCmdBindIndexBuffer(vk_command_buffer, indexBuffer->m_Handle.m_Buffer, 0, vk_index_type);
         }
 
-        // Bind the vertex buffers
-        VkBuffer vk_vertex_buffer             = vertex_buffer->m_Handle.m_Buffer;
-        VkDeviceSize vk_vertex_buffer_offsets = 0;
-        vkCmdBindVertexBuffers(vk_command_buffer, 0, 1, &vk_vertex_buffer, &vk_vertex_buffer_offsets);
+        VkBuffer vk_vertex_buffers[MAX_VERTEX_DECLARATIONS] = {};
+        VkDeviceSize vk_vertex_buffer_offsets[MAX_VERTEX_DECLARATIONS] = {};
+
+        uint32_t vk_vertex_buffers_count = 0;
+        for (int i = 0; i < MAX_VERTEX_DECLARATIONS; ++i)
+        {
+            if (context->m_CurrentVertexBuffer[i] != 0)
+            {
+                vk_vertex_buffers[vk_vertex_buffers_count++] = context->m_CurrentVertexBuffer[i]->m_Handle.m_Buffer;
+            }
+        }
+        vkCmdBindVertexBuffers(vk_command_buffer, 0, vk_vertex_buffers_count, vk_vertex_buffers, vk_vertex_buffer_offsets);
     }
 
     void VulkanHashVertexDeclaration(HashState32 *state, HVertexDeclaration vertex_declaration)

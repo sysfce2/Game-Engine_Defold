@@ -382,7 +382,7 @@ namespace dmGraphics
         Viewport                        m_MainViewport;
         // Rendering state
         RenderTarget*                   m_CurrentRenderTarget;
-        DeviceBuffer*                   m_CurrentVertexBuffer;
+        DeviceBuffer*                   m_CurrentVertexBuffer[MAX_VERTEX_DECLARATIONS];
         VertexDeclaration*              m_CurrentVertexDeclaration[MAX_VERTEX_DECLARATIONS];
         Program*                        m_CurrentProgram;
         // Misc state
@@ -458,8 +458,7 @@ namespace dmGraphics
     VkResult CreateShaderModule(VkDevice vk_device,
         const void* source, uint32_t sourceSize, ShaderModule* shaderModuleOut);
     VkResult CreatePipeline(VkDevice vk_device, VkRect2D vk_scissor, VkSampleCountFlagBits vk_sample_count,
-        const PipelineState pipelineState, Program* program, DeviceBuffer* vertexBuffer,
-        VertexDeclaration** vertexDeclaration, uint8_t vertexDeclarationCount, RenderTarget* render_target, Pipeline* pipelineOut);
+        const PipelineState pipelineState, Program* program, VertexDeclaration** vertexDeclaration, uint8_t vertexDeclarationCount, RenderTarget* render_target, Pipeline* pipelineOut);
     // Reset functions
     void           ResetScratchBuffer(VkDevice vk_device, ScratchBuffer* scratchBuffer);
     // Destroy funcions
