@@ -459,7 +459,7 @@ namespace dmGraphics
         const void* source, uint32_t sourceSize, ShaderModule* shaderModuleOut);
     VkResult CreatePipeline(VkDevice vk_device, VkRect2D vk_scissor, VkSampleCountFlagBits vk_sample_count,
         const PipelineState pipelineState, Program* program, DeviceBuffer* vertexBuffer,
-        VertexDeclaration* vertexDeclaration, uint8_t vertexDeclarationCount, RenderTarget* render_target, Pipeline* pipelineOut);
+        VertexDeclaration** vertexDeclaration, uint8_t vertexDeclarationCount, RenderTarget* render_target, Pipeline* pipelineOut);
     // Reset functions
     void           ResetScratchBuffer(VkDevice vk_device, ScratchBuffer* scratchBuffer);
     // Destroy funcions

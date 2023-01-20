@@ -962,6 +962,9 @@ namespace dmGraphics
             device_extensions.OffsetCapacity(1);
             device_extensions.Push(VK_IMG_FORMAT_PVRTC_EXTENSION_NAME);
         }
+
+        device_extensions.OffsetCapacity(1);
+        device_extensions.Push("VK_KHR_portability_subset");
     #endif
 
         res = CreateLogicalDevice(selected_device, context->m_WindowSurface, selected_queue_family,
@@ -1374,7 +1377,7 @@ bail:
 
     static Pipeline* GetOrCreatePipeline(VkDevice vk_device, VkSampleCountFlagBits vk_sample_count,
         const PipelineState pipelineState, PipelineCache& pipelineCache,
-        Program* program, RenderTarget* rt, DeviceBuffer* vertexBuffer, VertexDeclaration* vertexDeclaration, uint8_t vertexDeclarationCount)
+        Program* program, RenderTarget* rt, DeviceBuffer* vertexBuffer, VertexDeclaration** vertexDeclaration, uint8_t vertexDeclarationCount)
     {
         HashState64 pipeline_hash_state;
         dmHashInit64(&pipeline_hash_state, false);
@@ -1382,7 +1385,7 @@ bail:
         dmHashUpdateBuffer64(&pipeline_hash_state, &pipelineState, sizeof(pipelineState));
         for (int i = 0; i < vertexDeclarationCount; ++i)
         {
-            dmHashUpdateBuffer64(&pipeline_hash_state, &vertexDeclaration[i].m_Hash, sizeof(vertexDeclaration[i].m_Hash));
+            dmHashUpdateBuffer64(&pipeline_hash_state, &vertexDeclaration[i]->m_Hash, sizeof(vertexDeclaration[i]->m_Hash));
         }
         dmHashUpdateBuffer64(&pipeline_hash_state, &rt->m_Id, sizeof(rt->m_Id));
         dmHashUpdateBuffer64(&pipeline_hash_state, &vk_sample_count, sizeof(vk_sample_count));
@@ -1994,7 +1997,7 @@ bail:
         Pipeline* pipeline = GetOrCreatePipeline(vk_device, vk_sample_count,
             context->m_PipelineState, context->m_PipelineCache,
             program_ptr, context->m_CurrentRenderTarget,
-            vertex_buffer, *context->m_CurrentVertexDeclaration, context->m_CurrentVertexDeclarationCount);
+            vertex_buffer, context->m_CurrentVertexDeclaration, context->m_CurrentVertexDeclarationCount);
         vkCmdBindPipeline(vk_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
 
 

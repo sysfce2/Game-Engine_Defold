@@ -24,6 +24,10 @@ namespace dmGraphics
     static const char*   g_extension_names[] = {
         VK_KHR_SURFACE_EXTENSION_NAME,
 
+        VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
+        VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
+        //VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
+
     #if defined(VK_USE_PLATFORM_WIN32_KHR)
         VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
     #elif defined(VK_USE_PLATFORM_ANDROID_KHR)
@@ -38,7 +42,7 @@ namespace dmGraphics
         VK_EXT_METAL_SURFACE_EXTENSION_NAME,
     #endif
     };
-    static const char* DM_VULKAN_LAYER_VALIDATION   = "VK_LAYER_LUNARG_standard_validation";
+    static const char* DM_VULKAN_LAYER_VALIDATION   = "VK_LAYER_KHRONOS_validation"; // "VK_LAYER_LUNARG_standard_validation";
     static const char* g_validation_layers[1];
     static const char* g_validation_layer_ext[]     = { VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
 
