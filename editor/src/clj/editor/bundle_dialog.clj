@@ -23,6 +23,7 @@
             [editor.handler :as handler]
             [editor.prefs :as prefs]
             [editor.system :as system]
+            [editor.util :as util]
             [editor.ui :as ui])
   (:import [java.io File]
            [javafx.scene Scene]
@@ -580,7 +581,9 @@
 
 (defn- set-ios-options! [view {:keys [architecture-64bit? architecture-simulator? code-signing-identity provisioning-profile sign-app?] :as _options} issues code-signing-identity-names]
   (ui/with-controls view [architecture-64bit-check-box architecture-simulator-check-box code-signing-identity-choice-box ok-button provisioning-profile-text-field sign-app-check-box]
-    (ui/value! sign-app-check-box sign-app?)
+    (doto sign-app-check-box
+    		(ui/value! (if (util/is-mac-os?) sign-app? false))
+    		(ui/disable! (not (util/is-mac-os?))))
     (doto code-signing-identity-choice-box
       (set-choice! (into [nil] code-signing-identity-names) code-signing-identity)
       (set-field-status! (:code-signing-identity issues))

@@ -396,13 +396,12 @@
     (lsp/check-if-polled-resources-are-modified! (lsp/get-graph-lsp project-graph))))
 
 (def ^:private bundle-targets
-  (into []
-        (concat (when (util/is-mac-os?) [[:ios "iOS Application..."]]) ; macOS is required to sign iOS ipa.
-                [[:android "Android Application..."]
-                 [:macos   "macOS Application..."]
-                 [:windows "Windows Application..."]
-                 [:linux   "Linux Application..."]
-                 [:html5   "HTML5 Application..."]])))
+		[[:ios "iOS Application..."]
+		 [:android "Android Application..."]
+		 [:macos   "macOS Application..."]
+		 [:windows "Windows Application..."]
+		 [:linux   "Linux Application..."]
+		 [:html5   "HTML5 Application..."]])
 
 (handler/register-menu! ::menubar :editor.app-view/view
   [{:label "Project"
