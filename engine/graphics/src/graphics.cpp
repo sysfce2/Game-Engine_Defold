@@ -119,6 +119,7 @@ namespace dmGraphics
             GRAPHICS_ENUM_TO_STR_CASE(ADAPTER_TYPE_NULL);
             GRAPHICS_ENUM_TO_STR_CASE(ADAPTER_TYPE_OPENGL);
             GRAPHICS_ENUM_TO_STR_CASE(ADAPTER_TYPE_VULKAN);
+            GRAPHICS_ENUM_TO_STR_CASE(ADAPTER_TYPE_WEBGPU);
             default: break;
         }
         return "<unknown dmGraphics::AdapterType>";

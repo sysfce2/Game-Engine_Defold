@@ -232,6 +232,7 @@ message ShaderDesc
         LANGUAGE_GLES_SM300 = 4; // OpenGLES 3 / WebGL 2
         LANGUAGE_SPIRV      = 5;
         LANGUAGE_PSSL       = 6; // Playstation
+        LANGUAGE_WGSL       = 7; // WebGPU
      }
 
     enum ShaderDataType

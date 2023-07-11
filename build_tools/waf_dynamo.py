@@ -63,6 +63,8 @@ def platform_supports_feature(platform, feature, data):
         return waf_dynamo_vendor.supports_feature(platform, feature, data)
     if feature == 'vulkan':
         return platform not in ['js-web', 'wasm-web', 'x86_64-ios', 'x86_64-linux']
+    if feature == 'webgpu':
+        return platform in ['js-web', 'wasm-web']
     return waf_dynamo_vendor.supports_feature(platform, feature, data)
 
 def platform_setup_tools(ctx, build_util):
@@ -461,6 +463,10 @@ def default_flags(self):
             emflags += ['WASM=1', 'IMPORTED_MEMORY=1', 'ALLOW_MEMORY_GROWTH=1']
         else:
             emflags += ['WASM=0', 'LEGACY_VM_SUPPORT=1']
+
+        ##### WEBGPU SUPPORT ######
+        emflags += ['USE_WEBGPU=1']
+        ###########################
 
         emflags = zip(['-s'] * len(emflags), emflags)
         emflags =[j for i in emflags for j in i]
@@ -1753,6 +1759,7 @@ def detect(conf):
 
     conf.env['STLIB_GRAPHICS']          = ['graphics', 'graphics_transcoder_basisu', 'basis_transcoder']
     conf.env['STLIB_GRAPHICS_VULKAN']   = ['graphics_vulkan', 'graphics_transcoder_basisu', 'basis_transcoder']
+    conf.env['STLIB_GRAPHICS_WEBGPU']   = ['graphics_webgpu', 'graphics_transcoder_basisu', 'basis_transcoder']
     conf.env['STLIB_GRAPHICS_NULL']     = ['graphics_null', 'graphics_transcoder_null']
 
     conf.env['STLIB_DMGLFW'] = 'dmglfw'

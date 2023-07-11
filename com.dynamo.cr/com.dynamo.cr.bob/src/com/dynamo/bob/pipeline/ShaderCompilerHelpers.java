@@ -415,4 +415,10 @@ public class ShaderCompilerHelpers {
 
         return new ShaderProgramBuilder.ShaderBuildResult(builder);
     }
+
+    static public ShaderProgramBuilder.ShaderBuildResult buildWGSLFromGLSL(String source, ES2ToES3Converter.ShaderType shaderType, String resourceOutputPath, boolean isDebug, boolean soft_fail)  throws IOException, CompileExceptionError {
+        ShaderDesc.Shader.Builder builder = ShaderDesc.Shader.newBuilder();
+        builder.setLanguage(ShaderDesc.Language.LANGUAGE_WGSL);
+        return new ShaderProgramBuilder.ShaderBuildResult(builder);
+    }
 }

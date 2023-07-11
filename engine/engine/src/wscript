@@ -76,6 +76,10 @@ def build(bld):
     graphics_lib = 'GRAPHICS DMGLFW'
     graphics_lib_symbols = ['GraphicsAdapterOpenGL']
 
+    if bld.env['PLATFORM'] in ('wasm-web','js-web',):
+        graphics_lib += ' GRAPHICS_WEBGPU'
+        graphics_lib_symbols.append('GraphicsAdapterWebGPU')
+
     if waflib.Options.options.with_vulkan:
         graphics_lib += ' GRAPHICS_VULKAN VULKAN'
         graphics_lib_symbols.append('GraphicsAdapterVulkan')
@@ -165,6 +169,7 @@ def build(bld):
     if 'android' in bld.env['PLATFORM']:
         bld.install_files('${PREFIX}/share/java', 'dmengine.android/classes.dex')
 
+    """
     bld.add_group()
 
     obj = bld(
@@ -210,6 +215,7 @@ def build(bld):
         target = 'dmengine_headless',
         install_path = platform_bin_install_path,
         source = main_cpp.split())
+    """
 
     if 'win32' in bld.env.PLATFORM:
         obj.source.append('engine.rc')

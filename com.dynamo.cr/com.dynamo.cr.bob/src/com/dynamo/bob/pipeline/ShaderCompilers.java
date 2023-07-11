@@ -65,6 +65,8 @@ public class ShaderCompilers {
         for (ShaderDesc.Language shaderLanguage : shaderLanguages) {
             if (shaderLanguage == ShaderDesc.Language.LANGUAGE_SPIRV) {
                 shaderBuildResults.add(ShaderCompilerHelpers.buildSpirvFromGLSL(fullShaderSource, shaderType, resourceOutputPath, spirvTargetProfile, isDebug, softFail));
+            } else if (shaderLanguage == ShaderDesc.Language.LANGUAGE_WGSL) {
+                shaderBuildResults.add(ShaderCompilerHelpers.buildWGSLFromGLSL(fullShaderSource, shaderType, resourceOutputPath, isDebug, softFail));
             } else {
                 shaderBuildResults.add(ShaderCompilerHelpers.buildGLSL(fullShaderSource, shaderType, shaderLanguage, isDebug));
             }
@@ -143,6 +145,10 @@ public class ShaderCompilers {
             ArrayList<ShaderDesc.Language> shaderLanguages = new ArrayList<ShaderDesc.Language>();
             shaderLanguages.add(ShaderDesc.Language.LANGUAGE_GLES_SM300);
             shaderLanguages.add(ShaderDesc.Language.LANGUAGE_GLES_SM100);
+            if (outputSpirv)
+            {
+                shaderLanguages.add(ShaderDesc.Language.LANGUAGE_WGSL);
+            }
             return getBaseShaderBuildResults(resourceOutputPath, shaderSource, shaderType, shaderLanguages.toArray(new ShaderDesc.Language[0]), "", isDebug, softFail);
         }
     }
