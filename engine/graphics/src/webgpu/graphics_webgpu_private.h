@@ -86,8 +86,10 @@ namespace dmGraphics
     {
         WebGPUContext(const ContextParams& params);
 
-        WGPUDevice  m_Device;
-        WGPUSurface m_Surface;
+        // WebGPU specifics
+        WGPUDevice    m_Device;
+        WGPUSurface   m_Surface;
+        WGPUSwapChain m_SwapChain;
 
         dmOpaqueHandleContainer<uintptr_t> m_AssetHandleContainer;
         VertexStreamBuffer          m_VertexStreams[MAX_VERTEX_STREAM_COUNT];

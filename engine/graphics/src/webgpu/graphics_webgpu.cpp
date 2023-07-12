@@ -12,6 +12,10 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
+/* Notes
+    - emscripten swap chain issue: https://github.com/cwoffenden/hello-webgpu/issues/11
+*/
+
 #include <string.h>
 #include <assert.h>
 #include <dmsdk/dlib/vmath.h>
@@ -217,10 +221,10 @@ namespace dmGraphics
             mode = GLFW_FULLSCREEN;
         }
 
-        if (!glfwOpenWindow(params->m_Width, params->m_Height, 8, 8, 8, 8, 32, 8, mode))
-        {
-            return WINDOW_RESULT_WINDOW_OPEN_ERROR;
-        }
+        // if (!glfwOpenWindow(params->m_Width, params->m_Height, 8, 8, 8, 8, 32, 8, mode))
+        // {
+        //     return WINDOW_RESULT_WINDOW_OPEN_ERROR;
+        // }
 
         glfwSetWindowTitle(params->m_Title);
         glfwSetWindowBackgroundColor(params->m_BackgroundColor);
@@ -243,12 +247,30 @@ namespace dmGraphics
 
         wgpu::SurfaceDescriptorFromCanvasHTMLSelector html_surface_desc{};
         html_surface_desc.selector = "#canvas";
+
         wgpu::SurfaceDescriptor surface_desc{};
         surface_desc.nextInChain = &html_surface_desc;
+        surface_desc.label       = "Defold Device";
 
         // Use 'null' instance
         wgpu::Instance instance{};
         context->m_Surface = instance.CreateSurface(&surface_desc).Release();
+
+        if (!context->m_Surface)
+        {
+            dmLogError("Unable to create surface..");
+        }
+
+        // swap chain
+        WGPUSwapChainDescriptor swap_chain_desc = {};
+        swap_chain_desc.nextInChain             = nullptr;
+        swap_chain_desc.width                   = context->m_WindowWidth;
+        swap_chain_desc.height                  = context->m_WindowHeight;
+        swap_chain_desc.usage                   = WGPUTextureUsage_OutputAttachment; // doesn't exist? WGPUTextureUsage_RenderAttachment;
+        swap_chain_desc.format                  = WGPUTextureFormat_BGRA8Unorm; // we don't have an adapter so can't use wgpuSurfaceGetPreferredFormat(surface, adapter);
+        swap_chain_desc.presentMode             = WGPUPresentMode_Fifo;
+
+        context->m_SwapChain = wgpuDeviceCreateSwapChain(context->m_Device, context->m_Surface, &swap_chain_desc);
 
         if (params->m_PrintDeviceInfo)
         {
@@ -404,13 +426,58 @@ namespace dmGraphics
         WebGPUContext* context = (WebGPUContext*) _context;
     }
 
-    static void WebGPUBeginFrame(HContext context)
+    static void WebGPUBeginFrame(HContext _context)
     {
+        WebGPUContext* context = (WebGPUContext*) _context;
+        WGPUTextureView next_texture = wgpuSwapChainGetCurrentTextureView(context->m_SwapChain);
+
+        if (!next_texture)
+        {
+            dmLogError("Cannot acquire swap chain texture!");
+            return;
+        }
+
+        WGPUCommandEncoderDescriptor cmd_encoder_desc = {};
+        cmd_encoder_desc.nextInChain                  = NULL;
+        cmd_encoder_desc.label                        = "Command Encoder";
+        WGPUCommandEncoder cmd_encoder = wgpuDeviceCreateCommandEncoder(context->m_Device, &cmd_encoder_desc);
+
+        WGPURenderPassColorAttachmentDescriptor rp_attachment_color = {};
+        rp_attachment_color.attachment    = next_texture;
+        rp_attachment_color.resolveTarget = NULL;
+        rp_attachment_color.loadOp        = WGPULoadOp_Clear;
+        rp_attachment_color.storeOp       = WGPUStoreOp_Store;
+        rp_attachment_color.clearColor    = WGPUColor{ 0.9, 0.1, 0.2, 1.0 };
+
+        WGPURenderPassDescriptor rp_desc = {};
+        rp_desc.colorAttachmentCount     = 1;
+        rp_desc.colorAttachments         = &rp_attachment_color;
+        rp_desc.depthStencilAttachment   = NULL;
+        //rp_desc.timestampWriteCount      = 0;
+        //rp_desc.timestampWrites          = NULL;
+        rp_desc.nextInChain              = NULL;
+
+        // Should be moved
+        WGPURenderPassEncoder rp = wgpuCommandEncoderBeginRenderPass(cmd_encoder, &rp_desc);
+        wgpuRenderPassEncoderEndPass(rp);
+
+        wgpuTextureViewRelease(next_texture);
+        ////
+
+        WGPUCommandBufferDescriptor cmd_buffer_desc = {};
+        cmd_buffer_desc.nextInChain                 = nullptr;
+        cmd_buffer_desc.label                       = "Command buffer";
+        WGPUCommandBuffer command = wgpuCommandEncoderFinish(cmd_encoder, &cmd_buffer_desc);
+
+        WGPUQueue queue = wgpuDeviceGetDefaultQueue(context->m_Device);
+        wgpuQueueSubmit(queue, 1, &command);
     }
 
     static void WebGPUFlip(HContext _context)
     {
-        glfwSwapBuffers();
+        // glfwSwapBuffers();
+        WebGPUContext* context = (WebGPUContext*) _context;
+        wgpuSwapChainPresent(context->m_SwapChain);
     }
 
     static void WebGPUSetSwapInterval(HContext /*context*/, uint32_t swap_interval)
