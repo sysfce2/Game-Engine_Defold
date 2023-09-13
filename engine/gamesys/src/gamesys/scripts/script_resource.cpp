@@ -2130,7 +2130,7 @@ static int GetAtlas(lua_State* L)
                 for (int j = 0; j < geom.m_Uvs.m_Count; j += 2)
                 {
                     float s = geom.m_Uvs[j] * tex_width;
-                    float t = (1.0 - geom.m_Uvs[j + 1]) * tex_height;
+                    float t = geom.m_Uvs[j + 1] * tex_height;
 
                     SET_LUA_TABLE_RAW(lua_pushnumber, j + 1, s);
                     SET_LUA_TABLE_RAW(lua_pushnumber, j + 2, t);
