@@ -1523,7 +1523,7 @@ static void MakeTextureSetFromLua(lua_State* L, dmhash_t texture_path_hash, dmGr
                 max_uv_v = dmMath::Max(v, max_uv_v);
 
                 geometry.m_Uvs[j]     = u;
-                geometry.m_Uvs[j + 1] = 1.0 - v;
+                geometry.m_Uvs[j + 1] = v;
             }
 
             // From texture_set_ddf.proto:
@@ -1531,16 +1531,16 @@ static void MakeTextureSetFromLua(lua_State* L, dmhash_t texture_path_hash, dmGr
             // Note that we need to invert the V coordinates here to account for the texture coordinate space
             // NOTE: We could perhaps do it in the loop above by swapping the V min and max coordinates
             geometry_scratch_cursor[0] = min_uv_u;
-            geometry_scratch_cursor[1] = 1.0 - max_uv_v;
+            geometry_scratch_cursor[1] = max_uv_v;
 
             geometry_scratch_cursor[2] = min_uv_u;
-            geometry_scratch_cursor[3] = 1.0 - min_uv_v;
+            geometry_scratch_cursor[3] = min_uv_v;
 
             geometry_scratch_cursor[4] = max_uv_u;
-            geometry_scratch_cursor[5] = 1.0 - min_uv_v;
+            geometry_scratch_cursor[5] = min_uv_v;
 
             geometry_scratch_cursor[6] = max_uv_u;
-            geometry_scratch_cursor[7] = 1.0 - max_uv_v;
+            geometry_scratch_cursor[7] = max_uv_v;
 
             geometry_scratch_cursor += 8;
             frame_index_count++;
