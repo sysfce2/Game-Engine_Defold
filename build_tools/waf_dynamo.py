@@ -1597,11 +1597,18 @@ def detect(conf):
     elif 'android' == build_util.get_target_os() and build_util.get_target_architecture() in ('armv7', 'arm64'):
         # TODO: No windows support yet (unknown path to compiler when wrote this)
         bp_arch, bp_os = host_platform.split('-')
+        if bp_os == 'macos':
+            bp_os = 'darwin'
+        elif bp_os == 'win32':
+            bp_os = 'windows'
         target_arch = build_util.get_target_architecture()
         api_version = getAndroidNDKAPIVersion(target_arch)
         clang_name  = getAndroidCompilerName(target_arch, api_version)
         bintools    = '%s/toolchains/llvm/prebuilt/%s-%s/bin' % (ANDROID_NDK_ROOT, bp_os, bp_arch)
         tool_name = "llvm"
+
+        if not os.path.exists(bintools):
+            conf.fatal("Path does not exist: %s" % bintools)
 
         conf.env['CC']       = '%s/%s' % (bintools, clang_name)
         conf.env['CXX']      = '%s/%s++' % (bintools, clang_name)
@@ -1769,7 +1776,7 @@ def detect(conf):
         conf.env['LIB_OPENAL'] = ['OpenSLES']
     elif platform in ('win32', 'x86_64-win32'):
         conf.env['LIB_OPENAL'] = ['OpenAL32']
-    elif platform in ('x86_64-linux',):
+    elif platform in ('x86_64-linux','js-web','wasm-web'):
         conf.env['LIB_OPENAL'] = ['openal']
 
     conf.env['STLIB_DLIB'] = ['dlib', 'mbedtls', 'zip']
