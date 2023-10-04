@@ -21,7 +21,7 @@ BUILD_DIR=$(realpath ./build/src)
 
 set -e
 
-CLASS_NAME=com.dynamo.bob.pipeline.ModelImporter
+CLASS_NAME=com.dynamo.bob.pipeline.Modelc
 LIBNAME=modelc_shared
 SUFFIX=.so
 if [ "Darwin" == "$(uname)" ]; then

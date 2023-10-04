@@ -1080,9 +1080,9 @@ static jobject LoadFromBufferInternal(JNIEnv* env, jclass cls, jstring _path, jb
     return jscene;
 }
 
-JNIEXPORT jobject JNICALL Java_ModelImporter_LoadFromBufferInternal(JNIEnv* env, jclass cls, jstring _path, jbyteArray array, jobject data_resolver)
+JNIEXPORT jobject JNICALL Java_Modelc_LoadFromBufferInternal(JNIEnv* env, jclass cls, jstring _path, jbyteArray array, jobject data_resolver)
 {
-    dmLogDebug("Java_ModelImporter_LoadFromBufferInternal: env = %p\n", env);
+    dmLogDebug("Java_Modelc_LoadFromBufferInternal: env = %p\n", env);
     dmJNI::SignalContextScope env_scope(env);
 
     jobject jscene;
@@ -1092,12 +1092,12 @@ JNIEXPORT jobject JNICALL Java_ModelImporter_LoadFromBufferInternal(JNIEnv* env,
     return jscene;
 }
 
-JNIEXPORT jint JNICALL Java_ModelImporter_AddressOf(JNIEnv* env, jclass cls, jobject object)
+JNIEXPORT jint JNICALL Java_Modelc_AddressOf(JNIEnv* env, jclass cls, jobject object)
 {
     return dmModelImporter::AddressOf(object);
 }
 
-JNIEXPORT void JNICALL Java_ModelImporter_TestException(JNIEnv* env, jclass cls, jstring j_message)
+JNIEXPORT void JNICALL Java_Modelc_TestException(JNIEnv* env, jclass cls, jstring j_message)
 {
     dmJNI::SignalContextScope env_scope(env);
     ScopedString s_message(env, j_message);
@@ -1118,7 +1118,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     }
 
     // Find your class. JNI_OnLoad is called from the correct class loader context for this to work.
-    jclass c = env->FindClass("com/dynamo/bob/pipeline/ModelImporter");
+    jclass c = env->FindClass("com/dynamo/bob/pipeline/Modelc");
     dmLogDebug("JNI_OnLoad: c = %p\n", c);
     if (c == 0)
       return JNI_ERR;
@@ -1126,9 +1126,9 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     // Register your class' native methods.
     // Don't forget to add them to the corresponding java file (e.g. ModelImporter.java)
     static const JNINativeMethod methods[] = {
-        {"LoadFromBufferInternal", "(Ljava/lang/String;[BLjava/lang/Object;)L" CLASS_SCENE ";", reinterpret_cast<void*>(Java_ModelImporter_LoadFromBufferInternal)},
-        {"AddressOf", "(Ljava/lang/Object;)I", reinterpret_cast<void*>(Java_ModelImporter_AddressOf)},
-        {"TestException", "(Ljava/lang/String;)V", reinterpret_cast<void*>(Java_ModelImporter_TestException)},
+        {(char*)"LoadFromBufferInternal", (char*)"(Ljava/lang/String;[BLjava/lang/Object;)L" CLASS_SCENE ";", reinterpret_cast<void*>(Java_Modelc_LoadFromBufferInternal)},
+        {(char*)"AddressOf", (char*)"(Ljava/lang/Object;)I", reinterpret_cast<void*>(Java_Modelc_AddressOf)},
+        {(char*)"TestException", (char*)"(Ljava/lang/String;)V", reinterpret_cast<void*>(Java_Modelc_TestException)},
     };
     int rc = env->RegisterNatives(c, methods, sizeof(methods)/sizeof(JNINativeMethod));
     env->DeleteLocalRef(c);
