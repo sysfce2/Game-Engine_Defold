@@ -42,75 +42,55 @@ namespace dmModelImporter
 struct GltfData
 {
     cgltf_data* m_Data;
+    bool        m_Finalized;
 };
 
-static void OutputTransform(const dmTransform::Transform& transform)
-{
-    printf("    t: %f, %f, %f\n", transform.GetTranslation().getX(), transform.GetTranslation().getY(), transform.GetTranslation().getZ());
-    printf("    r: %f, %f, %f, %f\n", transform.GetRotation().getX(), transform.GetRotation().getY(), transform.GetRotation().getZ(), transform.GetRotation().getW());
-    printf("    s: %f, %f, %f\n", transform.GetScale().getX(), transform.GetScale().getY(), transform.GetScale().getZ());
-}
+// static const char* getPrimitiveTypeStr(cgltf_primitive_type type)
+// {
+//     switch(type)
+//     {
+//     case cgltf_primitive_type_points: return "cgltf_primitive_type_points";
+//     case cgltf_primitive_type_lines: return "cgltf_primitive_type_lines";
+//     case cgltf_primitive_type_line_loop: return "cgltf_primitive_type_line_loop";
+//     case cgltf_primitive_type_line_strip: return "cgltf_primitive_type_line_strip";
+//     case cgltf_primitive_type_triangles: return "cgltf_primitive_type_triangles";
+//     case cgltf_primitive_type_triangle_strip: return "cgltf_primitive_type_triangle_strip";
+//     case cgltf_primitive_type_triangle_fan: return "cgltf_primitive_type_triangle_fan";
+//     default: return "unknown";
+//     }
+// }
 
-static void printVector4(const dmVMath::Vector4& v)
-{
-    printf("%f, %f, %f, %f\n", v.getX(), v.getY(), v.getZ(), v.getW());
-}
+// static const char* GetAttributeTypeStr(cgltf_attribute_type type)
+// {
+//     switch(type)
+//     {
+//     case cgltf_attribute_type_invalid: return "cgltf_attribute_type_invalid";
+//     case cgltf_attribute_type_position: return "cgltf_attribute_type_position";
+//     case cgltf_attribute_type_normal: return "cgltf_attribute_type_normal";
+//     case cgltf_attribute_type_tangent: return "cgltf_attribute_type_tangent";
+//     case cgltf_attribute_type_texcoord: return "cgltf_attribute_type_texcoord";
+//     case cgltf_attribute_type_color: return "cgltf_attribute_type_color";
+//     case cgltf_attribute_type_joints: return "cgltf_attribute_type_joints";
+//     case cgltf_attribute_type_weights: return "cgltf_attribute_type_weights";
+//     default: return "unknown";
+//     }
+// }
 
-static void OutputMatrix(const dmTransform::Transform& transform)
-{
-    dmVMath::Matrix4 m = dmTransform::ToMatrix4(transform);
-    printf("        "); printVector4(m.getRow(0));
-    printf("        "); printVector4(m.getRow(1));
-    printf("        "); printVector4(m.getRow(2));
-    printf("        "); printVector4(m.getRow(3));
-}
-
-static const char* getPrimitiveTypeStr(cgltf_primitive_type type)
-{
-    switch(type)
-    {
-    case cgltf_primitive_type_points: return "cgltf_primitive_type_points";
-    case cgltf_primitive_type_lines: return "cgltf_primitive_type_lines";
-    case cgltf_primitive_type_line_loop: return "cgltf_primitive_type_line_loop";
-    case cgltf_primitive_type_line_strip: return "cgltf_primitive_type_line_strip";
-    case cgltf_primitive_type_triangles: return "cgltf_primitive_type_triangles";
-    case cgltf_primitive_type_triangle_strip: return "cgltf_primitive_type_triangle_strip";
-    case cgltf_primitive_type_triangle_fan: return "cgltf_primitive_type_triangle_fan";
-    default: return "unknown";
-    }
-}
-
-static const char* GetAttributeTypeStr(cgltf_attribute_type type)
-{
-    switch(type)
-    {
-    case cgltf_attribute_type_invalid: return "cgltf_attribute_type_invalid";
-    case cgltf_attribute_type_position: return "cgltf_attribute_type_position";
-    case cgltf_attribute_type_normal: return "cgltf_attribute_type_normal";
-    case cgltf_attribute_type_tangent: return "cgltf_attribute_type_tangent";
-    case cgltf_attribute_type_texcoord: return "cgltf_attribute_type_texcoord";
-    case cgltf_attribute_type_color: return "cgltf_attribute_type_color";
-    case cgltf_attribute_type_joints: return "cgltf_attribute_type_joints";
-    case cgltf_attribute_type_weights: return "cgltf_attribute_type_weights";
-    default: return "unknown";
-    }
-}
-
-static const char* GetTypeStr(cgltf_type type)
-{
-    switch(type)
-    {
-    case cgltf_type_invalid: return "cgltf_type_invalid";
-    case cgltf_type_scalar: return "cgltf_type_scalar";
-    case cgltf_type_vec2: return "cgltf_type_vec2";
-    case cgltf_type_vec3: return "cgltf_type_vec3";
-    case cgltf_type_vec4: return "cgltf_type_vec4";
-    case cgltf_type_mat2: return "cgltf_type_mat2";
-    case cgltf_type_mat3: return "cgltf_type_mat3";
-    case cgltf_type_mat4: return "cgltf_type_mat4";
-    default: return "unknown";
-    }
-}
+// static const char* GetTypeStr(cgltf_type type)
+// {
+//     switch(type)
+//     {
+//     case cgltf_type_invalid: return "cgltf_type_invalid";
+//     case cgltf_type_scalar: return "cgltf_type_scalar";
+//     case cgltf_type_vec2: return "cgltf_type_vec2";
+//     case cgltf_type_vec3: return "cgltf_type_vec3";
+//     case cgltf_type_vec4: return "cgltf_type_vec4";
+//     case cgltf_type_mat2: return "cgltf_type_mat2";
+//     case cgltf_type_mat3: return "cgltf_type_mat3";
+//     case cgltf_type_mat4: return "cgltf_type_mat4";
+//     default: return "unknown";
+//     }
+// }
 
 static const char* GetResultStr(cgltf_result result)
 {
@@ -130,29 +110,29 @@ static const char* GetResultStr(cgltf_result result)
     }
 }
 
-static const char* GetAnimationPathTypeStr(cgltf_animation_path_type type)
-{
-    switch(type)
-    {
-    case cgltf_animation_path_type_invalid: return "cgltf_animation_path_type_invalid";
-    case cgltf_animation_path_type_translation: return "cgltf_animation_path_type_translation";
-    case cgltf_animation_path_type_rotation: return "cgltf_animation_path_type_rotation";
-    case cgltf_animation_path_type_scale: return "cgltf_animation_path_type_scale";
-    case cgltf_animation_path_type_weights: return "cgltf_animation_path_type_weights";
-    default: return "unknown";
-    }
-}
+// static const char* GetAnimationPathTypeStr(cgltf_animation_path_type type)
+// {
+//     switch(type)
+//     {
+//     case cgltf_animation_path_type_invalid: return "cgltf_animation_path_type_invalid";
+//     case cgltf_animation_path_type_translation: return "cgltf_animation_path_type_translation";
+//     case cgltf_animation_path_type_rotation: return "cgltf_animation_path_type_rotation";
+//     case cgltf_animation_path_type_scale: return "cgltf_animation_path_type_scale";
+//     case cgltf_animation_path_type_weights: return "cgltf_animation_path_type_weights";
+//     default: return "unknown";
+//     }
+// }
 
-static const char* GetInterpolationTypeStr(cgltf_interpolation_type type)
-{
- switch(type)
- {
- case cgltf_interpolation_type_linear: return "cgltf_interpolation_type_linear";
- case cgltf_interpolation_type_step: return "cgltf_interpolation_type_step";
- case cgltf_interpolation_type_cubic_spline: return "cgltf_interpolation_type_cubic_spline";
- default: return "unknown";
- }
-}
+// static const char* GetInterpolationTypeStr(cgltf_interpolation_type type)
+// {
+//  switch(type)
+//  {
+//  case cgltf_interpolation_type_linear: return "cgltf_interpolation_type_linear";
+//  case cgltf_interpolation_type_step: return "cgltf_interpolation_type_step";
+//  case cgltf_interpolation_type_cubic_spline: return "cgltf_interpolation_type_cubic_spline";
+//  default: return "unknown";
+//  }
+// }
 
 
 static float* ReadAccessorFloat(cgltf_accessor* accessor, uint32_t desired_num_components, float default_value)
@@ -257,15 +237,6 @@ static Node* TranslateNode(cgltf_node* node, cgltf_data* gltf_data, Scene* scene
     return &scene->m_Nodes[index];
 }
 
-static dmTransform::Transform ToTransform(const float* m)
-{
-    dmVMath::Matrix4 mat = dmVMath::Matrix4(dmVMath::Vector4(m[0], m[1], m[2], m[3]),
-                                            dmVMath::Vector4(m[4], m[5], m[6], m[7]),
-                                            dmVMath::Vector4(m[8], m[9], m[10], m[11]),
-                                            dmVMath::Vector4(m[12], m[13], m[14], m[15]));
-    return dmTransform::ToTransform(mat);
-}
-
 static Skin* FindSkin(Scene* scene, cgltf_data* gltf_data, cgltf_skin* gltf_skin)
 {
     for (uint32_t i = 0; i < gltf_data->skins_count; ++i)
@@ -319,11 +290,11 @@ char* CreateObjectName<>(cgltf_buffer* object, const char* prefix, uint32_t inde
 static void UpdateWorldTransforms(Node* node)
 {
     if (node->m_Parent)
-        node->m_World = dmTransform::Mul(node->m_Parent->m_World, node->m_Local);
+        node->m_World = dmModelImporter::Mul(node->m_Parent->m_World, node->m_Local);
     else
         node->m_World = node->m_Local;
 
-    for (uint32_t c = 0; c < node->m_ChildrenCount; ++c)
+    for (uint32_t c = 0; c < node->m_Children.Size(); ++c)
     {
         UpdateWorldTransforms(node->m_Children[c]);
     }
@@ -331,11 +302,12 @@ static void UpdateWorldTransforms(Node* node)
 
 static void LoadNodes(Scene* scene, cgltf_data* gltf_data)
 {
-    scene->m_NodesCount = gltf_data->nodes_count;
     // We allocate one extra node, in case we need it for later
     // In the case we generate a root bone, we want a valid node for it.
-    scene->m_Nodes = new Node[scene->m_NodesCount+1];
-    memset(scene->m_Nodes, 0, sizeof(Node)*scene->m_NodesCount+1);
+    scene->m_Nodes.SetCapacity(gltf_data->nodes_count+1);
+    scene->m_Nodes.SetSize(gltf_data->nodes_count);
+
+    memset(scene->m_Nodes.Begin(), 0, sizeof(Node)*scene->m_Nodes.Size());
 
     for (size_t i = 0; i < gltf_data->nodes_count; ++i)
     {
@@ -368,11 +340,11 @@ static void LoadNodes(Scene* scene, cgltf_data* gltf_data)
 
         if (gltf_node->has_matrix)
         {
-            node->m_Local = ToTransform(gltf_node->matrix);
+            node->m_Local = dmModelImporter::ToTransform(gltf_node->matrix);
         }
         else
         {
-            node->m_Local = dmTransform::Transform(translation, rotation, scale);
+            node->m_Local = dmModelImporter::ToTransform(dmTransform::Transform(translation, rotation, scale));
         }
     }
 
@@ -385,41 +357,34 @@ static void LoadNodes(Scene* scene, cgltf_data* gltf_data)
 
         node->m_Parent = gltf_node->parent ? TranslateNode(gltf_node->parent, gltf_data, scene) : 0;
 
-        node->m_ChildrenCount = gltf_node->children_count;
-        node->m_Children = new Node*[node->m_ChildrenCount];
+        node->m_Children.SetCapacity(gltf_node->children_count);
+        node->m_Children.SetSize(gltf_node->children_count);
 
         for (uint32_t c = 0; c < gltf_node->children_count; ++c)
             node->m_Children[c] = TranslateNode(gltf_node->children[c], gltf_data, scene);
     }
 
     // Find root nodes
-    scene->m_RootNodesCount = 0;
-    for (uint32_t i = 0; i < scene->m_NodesCount; ++i)
+    for (uint32_t i = 0; i < scene->m_Nodes.Size(); ++i)
     {
         Node* node = &scene->m_Nodes[i];
-        if (node->m_Parent == 0)
-            scene->m_RootNodesCount++;
-    }
-    scene->m_RootNodes = new Node*[scene->m_RootNodesCount];
+        if (node->m_Parent != 0)
+            continue;
 
-    scene->m_RootNodesCount = 0;
-    for (uint32_t i = 0; i < scene->m_NodesCount; ++i)
-    {
-        Node* node = &scene->m_Nodes[i];
-        if (node->m_Parent == 0)
-        {
-            scene->m_RootNodes[scene->m_RootNodesCount++] = node;
+        if (scene->m_RootNodes.Full())
+            scene->m_RootNodes.OffsetCapacity(4);
 
-            UpdateWorldTransforms(node);
-        }
+        scene->m_RootNodes.Push(node);
+        UpdateWorldTransforms(node);
     }
 }
 
 static void LoadMaterials(Scene* scene, cgltf_data* gltf_data)
 {
-    scene->m_MaterialsCount = gltf_data->materials_count;
-    scene->m_Materials = new Material[scene->m_MaterialsCount];
-    memset(scene->m_Materials, 0, sizeof(Material)*scene->m_MaterialsCount);
+    scene->m_Materials.SetCapacity(gltf_data->materials_count);
+    scene->m_Materials.SetSize(gltf_data->materials_count);
+
+    memset(scene->m_Materials.Begin(), 0, sizeof(Material)*scene->m_Materials.Size());
 
     for (uint32_t i = 0; i < gltf_data->materials_count; ++i)
     {
@@ -466,32 +431,31 @@ static void LoadMaterials(Scene* scene, cgltf_data* gltf_data)
     }
 }
 
+
 static void CalcAABB(uint32_t count, float* positions, Aabb* aabb)
 {
-    aabb->m_Min[0] = aabb->m_Min[1] = aabb->m_Min[2] = FLT_MAX;
-    aabb->m_Max[0] = aabb->m_Max[1] = aabb->m_Max[2] = -FLT_MAX;
+    aabb->m_Min = Vec3f(FLT_MAX, FLT_MAX, FLT_MAX);
+    aabb->m_Max = Vec3f(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+
     for (uint32_t j = 0; j < count; j += 3, positions += 3)
     {
-        for (int i = 0; i < 3; ++i)
-        {
-            aabb->m_Min[i] = dmMath::Min(aabb->m_Min[i], positions[i]);
-            aabb->m_Max[i] = dmMath::Max(aabb->m_Max[i], positions[i]);
-        }
+        aabb->Union(Vec3f(positions[0], positions[1], positions[2]));
     }
 }
 
 static void AddDynamicMaterial(Scene* scene, Material* material)
 {
-    scene->m_DynamicMaterialsCount++;
-    scene->m_DynamicMaterials = (Material**)realloc(scene->m_DynamicMaterials, sizeof(Material*)*scene->m_DynamicMaterialsCount);
-    scene->m_DynamicMaterials[scene->m_DynamicMaterialsCount-1] = material;
+    if (scene->m_DynamicMaterials.Full())
+        scene->m_DynamicMaterials.OffsetCapacity(4);
+    scene->m_DynamicMaterials.Push(material);
 }
 
 static void LoadPrimitives(Scene* scene, Model* model, cgltf_data* gltf_data, cgltf_mesh* gltf_mesh)
 {
-    model->m_MeshesCount = gltf_mesh->primitives_count;
-    model->m_Meshes = new Mesh[model->m_MeshesCount];
-    memset(model->m_Meshes, 0, sizeof(Mesh)*model->m_MeshesCount);
+    model->m_Meshes.SetCapacity(gltf_mesh->primitives_count);
+    model->m_Meshes.SetSize(gltf_mesh->primitives_count);
+
+    memset(model->m_Meshes.Begin(), 0, sizeof(Mesh)*model->m_Meshes.Size());
 
     for (size_t i = 0; i < gltf_mesh->primitives_count; ++i)
     {
@@ -508,8 +472,7 @@ static void LoadPrimitives(Scene* scene, Model* model, cgltf_data* gltf_data, cg
 
         //printf("primitive_type: %s\n", getPrimitiveTypeStr(prim->type));
 
-        mesh->m_IndexCount = prim->indices->count;
-        mesh->m_Indices = ReadAccessorUint32(prim->indices, 1);
+        mesh->m_Indices.Set((int*)ReadAccessorUint32(prim->indices, 1), prim->indices->count, prim->indices->count, false);
 
         for (uint32_t a = 0; a < prim->attributes_count; ++a)
         {
@@ -548,12 +511,14 @@ static void LoadPrimitives(Scene* scene, Model* model, cgltf_data* gltf_data, cg
 
             if (fdata || udata)
             {
+                uint32_t data_count = mesh->m_VertexCount * desired_num_components;
+
                 if (attribute->type == cgltf_attribute_type_position)
                 {
-                    mesh->m_Positions = fdata;
+                    mesh->m_Positions.Set(fdata, mesh->m_VertexCount*3, mesh->m_VertexCount*3, false);
                     if (accessor->has_min && accessor->has_max) {
-                        memcpy(mesh->m_Aabb.m_Min, accessor->min, sizeof(float)*3);
-                        memcpy(mesh->m_Aabb.m_Max, accessor->max, sizeof(float)*3);
+                        mesh->m_Aabb.m_Min = Vec3f(accessor->min[0], accessor->min[1], accessor->min[2]);
+                        mesh->m_Aabb.m_Max = Vec3f(accessor->max[0], accessor->max[1], accessor->max[2]);
                     }
                     else
                     {
@@ -561,10 +526,10 @@ static void LoadPrimitives(Scene* scene, Model* model, cgltf_data* gltf_data, cg
                     }
                 }
                 else if (attribute->type == cgltf_attribute_type_normal) {
-                    mesh->m_Normals = fdata;
+                    mesh->m_Normals.Set(fdata, data_count, data_count, false);
                 }
                 else if (attribute->type == cgltf_attribute_type_tangent) {
-                    mesh->m_Tangents = fdata;
+                    mesh->m_Tangents.Set(fdata, data_count, data_count, false);
                 }
                 else if (attribute->type == cgltf_attribute_type_texcoord)
                 {
@@ -582,46 +547,54 @@ static void LoadPrimitives(Scene* scene, Model* model, cgltf_data* gltf_data, cg
 
                     if (attribute->index == 0)
                     {
-                        mesh->m_TexCoord0 = fdata;
                         mesh->m_TexCoord0NumComponents = num_components;
+                        data_count = mesh->m_VertexCount * num_components;
+                        mesh->m_TexCoord0.Set(fdata, data_count, data_count, false);
                     }
                     else if (attribute->index == 1)
                     {
-                        mesh->m_TexCoord1 = fdata;
                         mesh->m_TexCoord1NumComponents = num_components;
+                        data_count = mesh->m_VertexCount * num_components;
+                        mesh->m_TexCoord1.Set(fdata, data_count, data_count, false);
                     }
                 }
 
                 else if (attribute->type == cgltf_attribute_type_color)
-                    mesh->m_Color = fdata;
-
+                {
+                    mesh->m_Colors.Set(fdata, data_count, data_count, false);
+                }
                 else if (attribute->type == cgltf_attribute_type_joints)
-                    mesh->m_Bones = udata;
-
+                {
+                    mesh->m_Bones.Set((int*)udata, data_count, data_count, false);
+                }
                 else if (attribute->type == cgltf_attribute_type_weights)
-                    mesh->m_Weights = fdata;
+                {
+                    mesh->m_Colors.Set(fdata, data_count, data_count, false);
+                }
             }
         }
 
-        if (mesh->m_Weights && mesh->m_Material)
+        if (!mesh->m_Weights.Empty() && mesh->m_Material)
         {
             mesh->m_Material->m_IsSkinned = 1;
         }
 
-        if (!mesh->m_TexCoord0)
+        if (mesh->m_TexCoord0.Empty())
         {
             mesh->m_TexCoord0NumComponents = 2;
-            mesh->m_TexCoord0 = new float[mesh->m_VertexCount * mesh->m_TexCoord0NumComponents];
-            memset(mesh->m_TexCoord0, 0, mesh->m_VertexCount * mesh->m_TexCoord0NumComponents);
+            uint32_t data_count = mesh->m_VertexCount / mesh->m_TexCoord0NumComponents;
+            mesh->m_TexCoord0.SetCapacity(data_count);
+            mesh->m_TexCoord0.SetSize(data_count);
+            memset(mesh->m_TexCoord0.Begin(), 0, sizeof(data_count)*data_count);
         }
     }
 }
 
 static void LoadMeshes(Scene* scene, cgltf_data* gltf_data)
 {
-    scene->m_ModelsCount = gltf_data->meshes_count;
-    scene->m_Models = new Model[scene->m_ModelsCount];
-    memset(scene->m_Models, 0, sizeof(Model)*scene->m_ModelsCount);
+    scene->m_Models.SetCapacity(gltf_data->meshes_count);
+    scene->m_Models.SetSize(gltf_data->meshes_count);
+    memset(scene->m_Models.Begin(), 0, sizeof(Model)*scene->m_Models.Size());
 
     for (uint32_t i = 0; i < gltf_data->meshes_count; ++i)
     {
@@ -643,10 +616,11 @@ static void FixupNonSkinnedModels(Scene* scene, Bone* parent, Node* node)
 
     model->m_ParentBone = parent;
 
-    for (uint32_t j = 0; j < model->m_MeshesCount; ++j)
+    uint32_t mesh_count = model->m_Meshes.Size();
+    for (uint32_t j = 0; j < mesh_count; ++j)
     {
         Mesh* mesh = &model->m_Meshes[j];
-        if (mesh->m_Weights)
+        if (mesh->m_Weights.Empty())
             continue;
 
         if (!mesh->m_Material->m_IsSkinned)
@@ -657,7 +631,8 @@ static void FixupNonSkinnedModels(Scene* scene, Bone* parent, Node* node)
             char name[128];
             dmSnPrintf(name, sizeof(name), "%s_no_skin", mesh->m_Material->m_Name);
             Material* non_skinned = 0;
-            for (uint32_t m = 0; m < scene->m_DynamicMaterialsCount; ++m)
+            uint32_t num_dynamic_materials = scene->m_DynamicMaterials.Size();
+            for (uint32_t m = 0; m < num_dynamic_materials; ++m)
             {
                 Material* material = scene->m_DynamicMaterials[m];
                 if (strcmp(material->m_Name, name) == 0)
@@ -670,7 +645,7 @@ static void FixupNonSkinnedModels(Scene* scene, Bone* parent, Node* node)
             {
                 non_skinned = new Material;
                 non_skinned->m_IsSkinned = 0;
-                non_skinned->m_Index = scene->m_MaterialsCount + scene->m_DynamicMaterialsCount;
+                non_skinned->m_Index = scene->m_Materials.Size() + scene->m_DynamicMaterials.Size();
                 non_skinned->m_Name = strdup(name);
                 AddDynamicMaterial(scene, non_skinned);
             }
@@ -681,13 +656,13 @@ static void FixupNonSkinnedModels(Scene* scene, Bone* parent, Node* node)
 
 static void FixupNonSkinnedModels(Scene* scene, Skin* skin)
 {
-    for (uint32_t i = 0; i < skin->m_BonesCount; ++i)
+    for (uint32_t i = 0; i < skin->m_Bones.Size(); ++i)
     {
-        Bone* bone = &skin->m_Bones[i];
+        Bone* bone = skin->m_Bones[i];
         if (!bone->m_Node)
             continue;
 
-        for (uint32_t c = 0; c < bone->m_Node->m_ChildrenCount; ++c)
+        for (uint32_t c = 0; c < bone->m_Node->m_Children.Size(); ++c)
         {
             Node* child = bone->m_Node->m_Children[c];
             if (!child->m_Model)
@@ -699,7 +674,7 @@ static void FixupNonSkinnedModels(Scene* scene, Skin* skin)
 
 static void FixupNonSkinnedModels(Scene* scene, cgltf_data* gltf_data)
 {
-    for (uint32_t i = 0; i < scene->m_SkinsCount; ++i)
+    for (uint32_t i = 0; i < scene->m_Skins.Size(); ++i)
     {
         FixupNonSkinnedModels(scene, &scene->m_Skins[i]);
     }
@@ -723,10 +698,10 @@ static uint32_t FindBoneIndex(cgltf_skin* gltf_skin, cgltf_node* joint)
 // We can sort it on index
 struct BoneSortPred
 {
-    bool operator()(const Bone& a, const Bone& b) const
+    bool operator()(const Bone* a, const Bone* b) const
     {
-        int indexa = a.m_Index == INVALID_INDEX ? -1 : a.m_Index;
-        int indexb = b.m_Index == INVALID_INDEX ? -1 : b.m_Index;
+        int indexa = a->m_Index == INVALID_INDEX ? -1 : a->m_Index;
+        int indexb = b->m_Index == INVALID_INDEX ? -1 : b->m_Index;
         return indexa < indexb;
     }
 };
@@ -750,34 +725,35 @@ static void CalcIndicesDepthFirst(BoneSortInfo* infos, const Bone* bone, uint32_
     infos[bone->m_Index].m_OldIndex = bone->m_Index;
     infos[bone->m_Index].m_Index = (*index)++;
 
-    if (!bone->m_Children)
-        return;
-    for (uint32_t i = 0; i < bone->m_Children->Size(); ++i)
+    for (uint32_t i = 0; i < bone->m_Children.Size(); ++i)
     {
-        CalcIndicesDepthFirst(infos, (*bone->m_Children)[i], index);
+        CalcIndicesDepthFirst(infos, bone->m_Children[i], index);
     }
 }
 
 static void SortSkinBones(Skin* skin)
 {
-    BoneSortInfo* infos = new BoneSortInfo[skin->m_BonesCount];
+    uint32_t bones_count = skin->m_Bones.Size();
+    BoneSortInfo* infos = new BoneSortInfo[bones_count];
 
     uint32_t index_iter = 0;
-    for (uint32_t i = 0; i < skin->m_BonesCount; ++i)
+    for (uint32_t i = 0; i < bones_count; ++i)
     {
-        Bone* bone = &skin->m_Bones[i];
-        if (bone->m_ParentIndex == INVALID_INDEX)
+        Bone* bone = skin->m_Bones[i];
+        if (!bone->m_Parent)
         {
             CalcIndicesDepthFirst(infos, bone, &index_iter);
         }
     }
 
-    std::sort(infos, infos + skin->m_BonesCount, BoneInfoSortPred());
+    std::sort(infos, infos + bones_count, BoneInfoSortPred());
 
     // build the remap array
-    skin->m_BoneRemap = new uint32_t[skin->m_BonesCount];
+    skin->m_BoneRemap.SetCapacity(bones_count);
+    skin->m_BoneRemap.SetSize(bones_count);
+
     bool indices_differ = false;
-    for (uint32_t i = 0; i < skin->m_BonesCount; ++i)
+    for (uint32_t i = 0; i < bones_count; ++i)
     {
         uint32_t index_old = infos[i].m_OldIndex;
         uint32_t index_new = infos[i].m_Index;
@@ -788,21 +764,20 @@ static void SortSkinBones(Skin* skin)
     // If the indices don't differ, then we don't need to update the meshes bone indices either
     if (!indices_differ)
     {
-        delete[] skin->m_BoneRemap;
-        skin->m_BoneRemap = 0;
+        skin->m_BoneRemap.SetCapacity(0);
+        skin->m_BoneRemap.SetSize(0);
     }
 
     // do the remapping
-    if (skin->m_BoneRemap)
+    if (indices_differ)
     {
-        for (uint32_t i = 0; i < skin->m_BonesCount; ++i)
+        for (uint32_t i = 0; i < bones_count; ++i)
         {
-            Bone& bone = skin->m_Bones[i];
-            bone.m_Index = skin->m_BoneRemap[bone.m_Index];
-            bone.m_ParentIndex = bone.m_ParentIndex != INVALID_INDEX ? skin->m_BoneRemap[bone.m_ParentIndex] : INVALID_INDEX;
+            Bone* bone = skin->m_Bones[i];
+            bone->m_Index = skin->m_BoneRemap[bone->m_Index];
         }
 
-        std::sort(skin->m_Bones, skin->m_Bones + skin->m_BonesCount, BoneSortPred());
+        std::sort(skin->m_Bones.Begin(), skin->m_Bones.End(), BoneSortPred());
     }
 
     delete[] infos;
@@ -813,9 +788,9 @@ static void LoadSkins(Scene* scene, cgltf_data* gltf_data)
     if (gltf_data->skins_count == 0)
         return;
 
-    scene->m_SkinsCount = gltf_data->skins_count;
-    scene->m_Skins = new Skin[scene->m_SkinsCount];
-    memset(scene->m_Skins, 0, sizeof(Skin)*scene->m_SkinsCount);
+    scene->m_Skins.SetCapacity(gltf_data->skins_count);
+    scene->m_Skins.SetSize(gltf_data->skins_count);
+    memset(scene->m_Skins.Begin(), 0, sizeof(Skin)*scene->m_Skins.Size());
 
     for (uint32_t i = 0; i < gltf_data->skins_count; ++i)
     {
@@ -825,27 +800,29 @@ static void LoadSkins(Scene* scene, cgltf_data* gltf_data)
         skin->m_Name = CreateObjectName(gltf_skin, "skin", i);
         skin->m_Index = i;
 
-        skin->m_BonesCount = gltf_skin->joints_count;
-        skin->m_Bones = new Bone[skin->m_BonesCount];
-        memset(skin->m_Bones, 0, sizeof(Bone)*skin->m_BonesCount);
+        // Preallocate one if we need to generate a new root bone
+        skin->m_Bones.SetCapacity(gltf_skin->joints_count + 1);
 
         cgltf_accessor* accessor = gltf_skin->inverse_bind_matrices;
         for (uint32_t j = 0; j < gltf_skin->joints_count; ++j)
         {
             cgltf_node* gltf_joint = gltf_skin->joints[j];
-            Bone* bone = &skin->m_Bones[j];
+            Bone* bone = new Bone;
+            skin->m_Bones.Push(bone);
+
             bone->m_Name = CreateObjectName(gltf_joint, "bone", j);
             bone->m_Index = j;
-            bone->m_ParentIndex = FindBoneIndex(gltf_skin, gltf_joint->parent);
+            bone->m_Parent = 0;
+            uint32_t parent_index = FindBoneIndex(gltf_skin, gltf_joint->parent);
+            if (parent_index != INVALID_INDEX)
+                bone->m_Parent = skin->m_Bones[parent_index];
 
-            if (bone->m_ParentIndex != INVALID_INDEX)
+            if (bone->m_Parent)
             {
-                Bone* parent = &skin->m_Bones[bone->m_ParentIndex];
-                if (parent->m_Children == 0)
-                    parent->m_Children = new dmArray<Bone*>();
-                if (parent->m_Children->Full())
-                    parent->m_Children->OffsetCapacity(4);
-                parent->m_Children->Push(bone);
+                Bone* parent = bone->m_Parent;
+                if (parent->m_Children.Full())
+                    parent->m_Children.OffsetCapacity(4);
+                parent->m_Children.Push(bone);
             }
 
             // Cannot translate the bones here, since they're not created yet
@@ -868,8 +845,6 @@ static void LoadSkins(Scene* scene, cgltf_data* gltf_data)
         }
 
         SortSkinBones(skin);
-
-        // LOAD SKELETON?
     }
 }
 
@@ -878,16 +853,16 @@ static void GenerateRootBone(Scene* scene)
     Node* generated_node = 0;
 
     // For each skin, we must only have one root bone
-    for (uint32_t i = 0; i < scene->m_SkinsCount; ++i)
+    for (uint32_t i = 0; i < scene->m_Skins.Size(); ++i)
     {
         Skin* skin = &scene->m_Skins[i];
 
         uint32_t num_root_nodes = 0;
 
-        for (uint32_t j = 0; j < skin->m_BonesCount; ++j)
+        for (uint32_t j = 0; j < skin->m_Bones.Size(); ++j)
         {
-            dmModelImporter::Bone* bone = &skin->m_Bones[j];
-            if (bone->m_ParentIndex == INVALID_INDEX)
+            Bone* bone = skin->m_Bones[j];
+            if (!bone->m_Parent)
                 ++num_root_nodes;
         }
 
@@ -900,9 +875,10 @@ static void GenerateRootBone(Scene* scene)
         if (!generated_node)
         {
             // We've already pre allocated in LoadNodes()
-            Node* node = &scene->m_Nodes[scene->m_NodesCount];
+            scene->m_Nodes.SetSize(scene->m_Nodes.Capacity());
+            Node* node = &scene->m_Nodes[scene->m_Nodes.Size()-1];
             memset(node, 0, sizeof(Node));
-            node->m_Index = scene->m_NodesCount++;
+            node->m_Index = scene->m_Nodes.Size()-1;
 
             node->m_Name = CreateNameFromHash("_generated_node", node->m_Index);
             node->m_Local.SetIdentity();
@@ -911,49 +887,38 @@ static void GenerateRootBone(Scene* scene)
             generated_node = node;
         }
 
-        // Create the new array
-        Bone* new_bones = new Bone[skin->m_BonesCount+1];
-        memcpy(new_bones+1, skin->m_Bones, sizeof(Bone)*skin->m_BonesCount);
-
-        Bone* bone = &new_bones[0];
+        Bone* bone = new Bone;
         memset(bone, 0, sizeof(Bone));
         bone->m_Index = 0;
-        bone->m_ParentIndex = INVALID_INDEX;
-        bone->m_Name = strdup("_generated_root");
+        bone->m_Parent = 0;
+        bone->m_Name = strdup(generated_node->m_Name);
         bone->m_Node = generated_node;
-        bone->m_InvBindPose = dmTransform::Transform(dmVMath::Vector3(0,0,0),
-                                                     dmVMath::Quat(0,0,0,1),
-                                                     dmVMath::Vector3(1,1,1));
+        bone->m_InvBindPose.SetIdentity();
+        skin->m_Bones.Push(bone);
 
-        Bone* prev_bones = skin->m_Bones;
-        skin->m_Bones = new_bones;
-        skin->m_BonesCount++;
-        delete[] prev_bones;
-
-        // Update the indices
-        for (uint32_t j = 1; j < skin->m_BonesCount; ++j)
+        // Update the indices and pointers
+        for (uint32_t j = 1; j < skin->m_Bones.Size(); ++j)
         {
-            Bone* bone = &skin->m_Bones[j];
+            Bone* bone = skin->m_Bones[j];
             bone->m_Index++;
-            if (bone->m_ParentIndex == INVALID_INDEX)
-                bone->m_ParentIndex = 0;
-            else
-                bone->m_ParentIndex++;
+            if (!bone->m_Parent) // it's a root bone
+                bone->m_Parent = bone; // generated root
         }
 
         // Update the vertex influences
-        for (uint32_t i = 0; i < scene->m_ModelsCount; ++i)
+        for (uint32_t i = 0; i < scene->m_Models.Size(); ++i)
         {
             Model* model = &scene->m_Models[i];
-            for (uint32_t j = 0; j < model->m_MeshesCount; ++j)
+            for (uint32_t j = 0; j < model->m_Meshes.Size(); ++j)
             {
                 Mesh* mesh = &model->m_Meshes[j];
 
-                if (!mesh->m_Bones)
+                if (mesh->m_Bones.Empty())
                     continue; // The mesh doesn't have any bone indices to update
 
                 for (uint32_t v = 0; v < mesh->m_VertexCount; ++v)
                 {
+                    // Each vertex has 4 bone influences
                     mesh->m_Bones[v*4+0]++;
                     mesh->m_Bones[v*4+1]++;
                     mesh->m_Bones[v*4+2]++;
@@ -978,9 +943,9 @@ static void LinkNodesWithBones(Scene* scene, cgltf_data* gltf_data)
             Bone* bone = 0;
             for (uint32_t b = 0; b < gltf_skin->joints_count; ++b)
             {
-                if (strcmp(skin->m_Bones[b].m_Name, gltf_joint->name) == 0)
+                if (strcmp(skin->m_Bones[b]->m_Name, gltf_joint->name) == 0)
                 {
-                    bone = &skin->m_Bones[b];
+                    bone = skin->m_Bones[b];
                     break;
                 }
             }
@@ -991,12 +956,12 @@ static void LinkNodesWithBones(Scene* scene, cgltf_data* gltf_data)
 
 static void RemapMeshBoneIndices(Skin* skin, Mesh* mesh)
 {
-    uint32_t* remap_table = skin->m_BoneRemap;
+    int* remap_table = skin->m_BoneRemap.Begin();
     for (uint32_t i = 0; i < mesh->m_VertexCount; ++i)
     {
         for (int j = 0; j < 4; ++j)
         {
-            uint32_t old_index = mesh->m_Bones[i*4+j];
+            int old_index = mesh->m_Bones[i*4+j];
             mesh->m_Bones[i*4+j] = remap_table[old_index];
         }
     }
@@ -1018,9 +983,9 @@ static void LinkMeshesWithNodes(Scene* scene, cgltf_data* gltf_data)
         node->m_Model = &scene->m_Models[index];
 
         // We need to compensate for any bone index remapping
-        if (node->m_Skin && node->m_Skin->m_BoneRemap)
+        if (node->m_Skin && !node->m_Skin->m_BoneRemap.Empty())
         {
-            for (uint32_t j = 0; j < node->m_Model->m_MeshesCount; ++j)
+            for (uint32_t j = 0; j < node->m_Model->m_Meshes.Size(); ++j)
             {
                 RemapMeshBoneIndices(node->m_Skin, &node->m_Model->m_Meshes[j]);
             }
@@ -1082,18 +1047,15 @@ static void LoadChannel(NodeAnimation* node_animation, cgltf_animation_channel* 
 
     if (channel->target_path == cgltf_animation_path_type_translation)
     {
-        node_animation->m_TranslationKeys = key_frames;
-        node_animation->m_TranslationKeysCount = key_count;
+        node_animation->m_TranslationKeys.Set(key_frames, key_count, key_count, false);
     }
     else if(channel->target_path == cgltf_animation_path_type_rotation)
     {
-        node_animation->m_RotationKeys = key_frames;
-        node_animation->m_RotationKeysCount = key_count;
+        node_animation->m_RotationKeys.Set(key_frames, key_count, key_count, false);
     }
     else if(channel->target_path == cgltf_animation_path_type_scale)
     {
-        node_animation->m_ScaleKeys = key_frames;
-        node_animation->m_ScaleKeysCount = key_count;
+        node_animation->m_ScaleKeys.Set(key_frames, key_count, key_count, false);
     } else
     {
         // Unsupported type
@@ -1131,8 +1093,8 @@ static void LoadAnimations(Scene* scene, cgltf_data* gltf_data)
     if (gltf_data->animations_count == 0)
         return;
 
-    scene->m_AnimationsCount = gltf_data->animations_count;
-    scene->m_Animations = new Animation[scene->m_AnimationsCount];
+    scene->m_Animations.SetCapacity(gltf_data->animations_count);
+    scene->m_Animations.SetSize(gltf_data->animations_count);
 
     // first, count number of animated nodes we have
     for (uint32_t a = 0; a < gltf_data->animations_count; ++a)
@@ -1145,9 +1107,10 @@ static void LoadAnimations(Scene* scene, cgltf_data* gltf_data)
         // Here we want to create a many individual tracks for different bones (name.type): "a.rot", "b.rot", "a.pos", "b.scale"...
         // into a list of tracks that holds all 3 types: [a: {rot, pos, scale}, b: {rot, pos, scale}...]
         dmHashTable64<uint32_t> node_name_to_index;
-        animation->m_NodeAnimationsCount = CountAnimatedNodes(gltf_animation, node_name_to_index);
-        animation->m_NodeAnimations = new NodeAnimation[animation->m_NodeAnimationsCount];
-        memset(animation->m_NodeAnimations, 0, sizeof(NodeAnimation) * animation->m_NodeAnimationsCount);
+        uint32_t node_animations_count = CountAnimatedNodes(gltf_animation, node_name_to_index);
+        animation->m_NodeAnimations.SetCapacity(node_animations_count);
+        animation->m_NodeAnimations.SetSize(node_animations_count);
+        memset(animation->m_NodeAnimations.Begin(), 0, sizeof(NodeAnimation) * animation->m_NodeAnimations.Size());
 
         for (size_t i = 0; i < gltf_animation->channels_count; ++i)
         {
@@ -1282,7 +1245,9 @@ static void LoadScene(Scene* scene, cgltf_data* data)
 static bool LoadFinalizeGltf(Scene* scene)
 {
     GltfData* data = (GltfData*)scene->m_OpaqueSceneData;
-    LoadScene(scene, data->m_Data);
+    if (!data->m_Finalized)
+        LoadScene(scene, data->m_Data);
+    data->m_Finalized = true;
     return true;
 }
 
@@ -1330,14 +1295,15 @@ Scene* LoadGltfFromBuffer(Options* importeroptions, void* mem, uint32_t file_siz
     memset(scene, 0, sizeof(Scene));
     GltfData* scenedata = new GltfData;
     scenedata->m_Data = data;
+    scenedata->m_Finalized = false;
 
     scene->m_OpaqueSceneData = scenedata;
     scene->m_LoadFinalizeFn = LoadFinalizeGltf;
     scene->m_ValidateFn = ValidateGltf;
     scene->m_DestroyFn = DestroyGltf;
 
-    scene->m_BuffersCount = data->buffers_count;
-    scene->m_Buffers = new Buffer[scene->m_BuffersCount];
+    scene->m_Buffers.SetCapacity(data->buffers_count);
+    scene->m_Buffers.SetSize(data->buffers_count);
 
     for (cgltf_size i = 0; i < data->buffers_count; ++i)
     {
@@ -1364,7 +1330,7 @@ void ResolveBuffer(Scene* scene, const char* uri, void* bufferdata, uint32_t buf
     cgltf_options* options = &_options;
     memset(options, 0, sizeof(cgltf_options));
 
-    for (cgltf_size i = 0; i < scene->m_BuffersCount; ++i)
+    for (cgltf_size i = 0; i < scene->m_Buffers.Size(); ++i)
     {
         Buffer* scenebuffer = &scene->m_Buffers[i];
         if (strcmp(scenebuffer->m_Uri, uri) == 0)

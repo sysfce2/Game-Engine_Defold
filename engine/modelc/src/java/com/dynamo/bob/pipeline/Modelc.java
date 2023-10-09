@@ -365,11 +365,11 @@ public class Modelc {
         DebugPrintFloatArray(indent+1, "weights", mesh.weights, max_count, 4);
         DebugPrintIntArray(indent+1, "bones", mesh.bones, max_count, 4);
 
-        DebugPrintFloatArray(indent+1, "texCoords0", mesh.getTexCoords(0), max_count, mesh.texCoords0NumComponents);
-        DebugPrintFloatArray(indent+1, "texCoords1", mesh.getTexCoords(1), max_count, mesh.texCoords1NumComponents);
+        DebugPrintFloatArray(indent+1, "texCoords0", mesh.texCoord0, max_count, mesh.texCoord0NumComponents);
+        DebugPrintFloatArray(indent+1, "texCoords1", mesh.texCoord1, max_count, mesh.texCoord1NumComponents);
 
-        if (max_count > mesh.indexCount/3)
-            max_count = mesh.indexCount/3;
+        if (max_count > mesh.indices.length/3)
+            max_count = mesh.indices.length/3;
         DebugPrintIntArray(indent+1, "indices", mesh.indices, max_count, 3);
     }
 

@@ -1185,12 +1185,11 @@ def make_package_dir(outdir, packagename):
     os.makedirs(out, exist_ok=True) # com.dynamo.bob.pipeline
     return out
 
-def generate(header_path, namespace, package_name, includes, java_outdir, jni_outdir):
+def generate(header_path, namespace, java_namespace, package_name, includes, java_outdir, jni_outdir):
 
     module_name = os.path.basename(header_path)
     module_name = os.path.splitext(module_name)[0].capitalize()
 
-    package_name = 'com.dynamo.bob.pipeline'
     package_dir = make_package_dir(java_outdir, package_name)
 
     source_path = f'{jni_outdir}/{module_name}.empty.cpp'
@@ -1212,7 +1211,7 @@ def generate(header_path, namespace, package_name, includes, java_outdir, jni_ou
     output_jni_cpp_path = f"{jni_outdir}/{ir['module']}_jni.cpp"
     output_jni_h_path = f"{jni_outdir}/{ir['module']}_jni.h"
 
-    gen_java_source(ir, module_name, package_name)
+    gen_java_source(ir, java_namespace, package_name)
 
     with open(output_java_path, 'w', newline='\n') as f_outp:
         f_outp.write(out_lines)

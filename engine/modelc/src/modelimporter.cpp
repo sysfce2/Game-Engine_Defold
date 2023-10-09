@@ -16,6 +16,9 @@
 #include "modelimporter.h"
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/dlib/dstrings.h>
+#include <dmsdk/dlib/math.h>
+#include <dmsdk/dlib/vmath.h>
+#include <float.h> // FLT_MAX
 #include <stdio.h>
 #include <stdlib.h> // getenv
 #include <string.h>
@@ -57,25 +60,97 @@ Options::Options()
 {
 }
 
+inline dmVMath::Vector3 ToVector3(const Vec3f& v)
+{
+    return dmVMath::Vector3(v.x, v.y, v.z);
+}
+
+inline Vec3f FromVector3(const dmVMath::Vector3& v)
+{
+    return Vec3f(v.getX(), v.getY(), v.getZ());
+}
+// inline dmVMath::Vector4 ToVector4(const Vec4f& v)
+// {
+//     return dmVMath::Vector4(v.x, v.y, v.z, v.w);
+// }
+
+inline dmVMath::Quat ToQuat(const Vec4f& v)
+{
+    return dmVMath::Quat(v.x, v.y, v.z, v.w);
+}
+
+inline Vec4f FromQuat(const dmVMath::Quat& v)
+{
+    return Vec4f(v.getX(), v.getY(), v.getZ(), v.getW());
+}
+
+Transform ToTransform(const dmTransform::Transform& t)
+{
+    return Transform(   FromVector3(t.GetTranslation()),
+                        FromQuat(t.GetRotation()),
+                        FromVector3(t.GetScale()));
+}
+
+Transform ToTransform(const float* m)
+{
+    dmVMath::Matrix4 mat = dmVMath::Matrix4(dmVMath::Vector4(m[0], m[1], m[2], m[3]),
+                                            dmVMath::Vector4(m[4], m[5], m[6], m[7]),
+                                            dmVMath::Vector4(m[8], m[9], m[10], m[11]),
+                                            dmVMath::Vector4(m[12], m[13], m[14], m[15]));
+    dmTransform::Transform t = dmTransform::ToTransform(mat);
+    return ToTransform(t);
+}
+
+Transform Mul(const Transform& a, const Transform& b)
+{
+    dmTransform::Transform ta(  ToVector3(a.m_Translation),
+                                ToQuat(a.m_Rotation),
+                                ToVector3(a.m_Scale));
+
+    dmTransform::Transform tb(  ToVector3(b.m_Translation),
+                                ToQuat(b.m_Rotation),
+                                ToVector3(b.m_Scale));
+
+    dmTransform::Transform t = dmTransform::Mul(ta, tb);
+    return ToTransform(t);
+}
+
+Aabb::Aabb()
+: m_Min(FLT_MAX, FLT_MAX, FLT_MAX)
+, m_Max(-FLT_MAX, -FLT_MAX, -FLT_MAX)
+{
+}
+
+void Aabb::Union(const Vec3f& p)
+{
+    m_Min.x = dmMath::Min(m_Min.x, p.x);
+    m_Min.y = dmMath::Min(m_Min.y, p.y);
+    m_Min.z = dmMath::Min(m_Min.z, p.z);
+    m_Max.x = dmMath::Max(m_Max.x, p.x);
+    m_Max.y = dmMath::Max(m_Max.y, p.y);
+    m_Max.z = dmMath::Max(m_Max.z, p.z);
+}
+
 static void DestroyMesh(Mesh* mesh)
 {
-    delete[] mesh->m_Positions;
-    delete[] mesh->m_Normals;
-    delete[] mesh->m_Tangents;
-    delete[] mesh->m_Color;
-    delete[] mesh->m_Weights;
-    delete[] mesh->m_Bones;
-    delete[] mesh->m_TexCoord0;
-    delete[] mesh->m_TexCoord1;
     free((void*)mesh->m_Name);
+    mesh->m_Positions.SetCapacity(0);
+    mesh->m_Normals.SetCapacity(0);
+    mesh->m_Tangents.SetCapacity(0);
+    mesh->m_Colors.SetCapacity(0);
+    mesh->m_Weights.SetCapacity(0);
+    mesh->m_Bones.SetCapacity(0);
+    mesh->m_TexCoord0.SetCapacity(0);
+    mesh->m_TexCoord1.SetCapacity(0);
 }
 
 static void DestroyModel(Model* model)
 {
     free((void*)model->m_Name);
-    for (uint32_t i = 0; i < model->m_MeshesCount; ++i)
+    uint32_t size = model->m_Meshes.Size();
+    for (uint32_t i = 0; i < size; ++i)
         DestroyMesh(&model->m_Meshes[i]);
-    delete[] model->m_Meshes;
+    model->m_Meshes.SetCapacity(0);
 }
 
 static void DestroyNode(Node* node)
@@ -85,32 +160,34 @@ static void DestroyNode(Node* node)
 
 static void DestroyBone(Bone* bone)
 {
-    delete bone->m_Children;
+    bone->m_Children.SetCapacity(0);
     free((void*)bone->m_Name);
 }
 
 static void DestroySkin(Skin* skin)
 {
     free((void*)skin->m_Name);
-    for (uint32_t i = 0; i < skin->m_BonesCount; ++i)
-        DestroyBone(&skin->m_Bones[i]);
-    delete[] skin->m_Bones;
-    delete[] skin->m_BoneRemap;
+    uint32_t size = skin->m_Bones.Size();
+    for (uint32_t i = 0; i < size; ++i)
+        DestroyBone(skin->m_Bones[i]);
+    skin->m_Bones.SetCapacity(0);
+    skin->m_BoneRemap.SetCapacity(0);
 }
 
 static void DestroyNodeAnimation(NodeAnimation* node_animation)
 {
-    delete[] node_animation->m_TranslationKeys;
-    delete[] node_animation->m_RotationKeys;
-    delete[] node_animation->m_ScaleKeys;
+    node_animation->m_TranslationKeys.SetCapacity(0);
+    node_animation->m_RotationKeys.SetCapacity(0);
+    node_animation->m_ScaleKeys.SetCapacity(0);
 }
 
 static void DestroyAnimation(Animation* animation)
 {
     free((void*)animation->m_Name);
-    for (uint32_t i = 0; i < animation->m_NodeAnimationsCount; ++i)
+    uint32_t size = animation->m_NodeAnimations.Size();
+    for (uint32_t i = 0; i < size; ++i)
         DestroyNodeAnimation(&animation->m_NodeAnimations[i]);
-    delete[] animation->m_NodeAnimations;
+    animation->m_NodeAnimations.SetCapacity(0);
 }
 
 static void DestroyMaterial(Material* material)
@@ -148,41 +225,41 @@ void DestroyScene(Scene* scene)
     scene->m_DestroyFn(scene);
     scene->m_OpaqueSceneData = 0;
 
-    for (uint32_t i = 0; i < scene->m_NodesCount; ++i)
+    uint32_t size;
+
+    size = scene->m_Nodes.Size();
+    for (uint32_t i = 0; i < size; ++i)
         DestroyNode(&scene->m_Nodes[i]);
-    scene->m_NodesCount = 0;
-    delete[] scene->m_Nodes;
+    scene->m_Nodes.SetCapacity(0);
 
-    scene->m_RootNodesCount = 0;
-    delete[] scene->m_RootNodes;
+    scene->m_RootNodes.SetCapacity(0);
 
-    for (uint32_t i = 0; i < scene->m_ModelsCount; ++i)
+    size = scene->m_Models.Size();
+    for (uint32_t i = 0; i < size; ++i)
         DestroyModel(&scene->m_Models[i]);
-    scene->m_ModelsCount = 0;
-    delete[] scene->m_Models;
+    scene->m_Models.SetCapacity(0);
 
-    for (uint32_t i = 0; i < scene->m_SkinsCount; ++i)
+    size = scene->m_Skins.Size();
+    for (uint32_t i = 0; i < size; ++i)
         DestroySkin(&scene->m_Skins[i]);
-    scene->m_SkinsCount = 0;
-    delete[] scene->m_Skins;
+    scene->m_Skins.SetCapacity(0);
 
-    for (uint32_t i = 0; i < scene->m_AnimationsCount; ++i)
+    size = scene->m_Animations.Size();
+    for (uint32_t i = 0; i < size; ++i)
         DestroyAnimation(&scene->m_Animations[i]);
-    scene->m_AnimationsCount = 0;
-    delete[] scene->m_Animations;
+    scene->m_Animations.SetCapacity(0);
 
-    for (uint32_t i = 0; i < scene->m_MaterialsCount; ++i)
+    size = scene->m_Materials.Size();
+    for (uint32_t i = 0; i < size; ++i)
         DestroyMaterial(&scene->m_Materials[i]);
-    scene->m_MaterialsCount = 0;
-    delete[] scene->m_Materials;
+    scene->m_Materials.SetCapacity(0);
 
-    for (uint32_t i = 0; i < scene->m_DynamicMaterialsCount; ++i)
+    size = scene->m_DynamicMaterials.Size();
+    for (uint32_t i = 0; i < size; ++i)
         DestroyMaterial(scene->m_DynamicMaterials[i]);
-    scene->m_DynamicMaterialsCount = 0;
-    free((void*)scene->m_DynamicMaterials);
+    scene->m_DynamicMaterials.SetSize(0);
 
-    scene->m_BuffersCount = 0;
-    delete[] scene->m_Buffers;
+    scene->m_Buffers.SetCapacity(0);
 
     delete scene;
 }
@@ -241,7 +318,7 @@ Scene* LoadFromPath(Options* options, const char* path)
 
     if (dmModelImporter::NeedsResolve(scene))
     {
-        for (uint32_t i = 0; i < scene->m_BuffersCount; ++i)
+        for (uint32_t i = 0; i < scene->m_Buffers.Size(); ++i)
         {
             if (scene->m_Buffers[i].m_Buffer)
                 continue;
@@ -266,7 +343,7 @@ Scene* LoadFromPath(Options* options, const char* path)
 
 bool NeedsResolve(Scene* scene)
 {
-    for (uint32_t i = 0; i < scene->m_BuffersCount; ++i)
+    for (uint32_t i = 0; i < scene->m_Buffers.Size(); ++i)
     {
         if (!scene->m_Buffers[i].m_Buffer)
             return true;;

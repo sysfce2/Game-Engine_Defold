@@ -578,8 +578,8 @@ public class ModelUtil {
 
         float[] positions = mesh.positions;
         float[] normals = mesh.normals;
-        float[] texCoords0 = mesh.getTexCoords(0);
-        float[] texCoords1 = mesh.getTexCoords(1);
+        float[] texCoords0 = mesh.texCoord0;
+        float[] texCoords1 = mesh.texCoord1;
 
         meshBuilder.setAabbMin(toDDFVector3(mesh.aabb.min));
         meshBuilder.setAabbMax(toDDFVector3(mesh.aabb.max));
@@ -644,7 +644,8 @@ public class ModelUtil {
 
         modelBuilder.setId(MurmurHash.hash64(node.name)); // the node name is the human readable name (e.g Sword)
         modelBuilder.setLocal(toDDFTransform(node.local));
-        modelBuilder.setBoneId(MurmurHash.hash64(model.boneParentName));
+        if (model.boneParent != null)
+            modelBuilder.setBoneId(MurmurHash.hash64(model.boneParent.name));
 
         return modelBuilder.build();
     }

@@ -142,9 +142,9 @@ def get_constant(decl):
         return None
     child = decl['inner'][0]
     if child['kind'] == 'ImplicitCastExpr':
-        child = child['inner']
+        child = child['inner'][0]
     if child['kind'] in ('IntegerLiteral', 'FloatingLiteral'):
-        return child['value']
+        return child
     return None
 
 def parse_var(decl):
@@ -152,11 +152,10 @@ def parse_var(decl):
     outp['kind'] = 'var'
     outp['name'] = decl['name']
 
-    value = get_constant(decl)
-    if value is None:
-        sys.exit(f"ERROR: VarDecl must have a IntegerLiteral or IntegerLiteral: ({decl['name']})")
+    var_decl = get_constant(decl)
+    if var_decl is None:
+        sys.exit(f"ERROR: VarDecl must have a IntegerLiteral or FloatingLiteral: ({decl['name']})")
 
-    var_decl = decl['inner'][0]
     outp['type'] = filter_types(var_decl['type']['qualType'])
     outp['value'] = var_decl['value']
     return outp
