@@ -13,7 +13,7 @@
 // specific language governing permissions and limitations under the License.
 
 #include "testapi.h"
-#include "Testapi_jni.h"
+#include "TestApi_jni.h"
 #include <jni/jni_util.h>
 
 #include <jni.h>

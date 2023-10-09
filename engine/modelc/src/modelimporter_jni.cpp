@@ -16,7 +16,7 @@
 
 #include <jni.h>
 #include <jni/jni_util.h>
-#include "jni/Modelimporter_jni.h"
+#include "jni/ModelImporter_jni.h"
 
 #include <dlib/array.h>
 #include <dlib/log.h>

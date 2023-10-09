@@ -4,7 +4,7 @@
 #include "modelimporter.h"
 
 #define JAVA_PACKAGE_NAME "com/dynamo/bob/pipeline"
-#define CLASS_NAME "com/dynamo/bob/pipeline/Modelimporter"
+#define CLASS_NAME "com/dynamo/bob/pipeline/ModelImporter"
 
 namespace dmModelImporter {
 namespace jni {

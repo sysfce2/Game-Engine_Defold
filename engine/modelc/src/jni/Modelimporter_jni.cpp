@@ -2,11 +2,11 @@
 
 #include <jni.h>
 
-#include "Modelimporter_jni.h"
+#include "ModelImporter_jni.h"
 #include <jni/jni_util.h>
 #include <dlib/array.h>
 
-#define CLASS_NAME_FORMAT "com/dynamo/bob/pipeline/Modelimporter$%s"
+#define CLASS_NAME_FORMAT "com/dynamo/bob/pipeline/ModelImporter$%s"
 
 namespace dmModelImporter {
 namespace jni {

@@ -1192,7 +1192,7 @@ def generate(header_path, namespace, java_namespace, package_name, includes, jav
 
     package_dir = make_package_dir(java_outdir, package_name)
 
-    source_path = f'{jni_outdir}/{module_name}.empty.cpp'
+    source_path = f'{jni_outdir}/{java_namespace}.empty.cpp'
 
     source_dir = os.path.dirname(source_path)
     if not os.path.exists(source_dir):
@@ -1207,9 +1207,9 @@ def generate(header_path, namespace, java_namespace, package_name, includes, jav
 
     os.unlink(source_path)
 
-    output_java_path = f"{package_dir}/{ir['module']}.java"
-    output_jni_cpp_path = f"{jni_outdir}/{ir['module']}_jni.cpp"
-    output_jni_h_path = f"{jni_outdir}/{ir['module']}_jni.h"
+    output_java_path = f"{package_dir}/{java_namespace}.java"
+    output_jni_cpp_path = f"{jni_outdir}/{java_namespace}_jni.cpp"
+    output_jni_h_path = f"{jni_outdir}/{java_namespace}_jni.h"
 
     gen_java_source(ir, java_namespace, package_name)
 
@@ -1218,14 +1218,14 @@ def generate(header_path, namespace, java_namespace, package_name, includes, jav
     print("Wrote", output_java_path)
 
     reset_lines()
-    gen_jni_source(ir, module_name, os.path.basename(output_jni_h_path), package_name)
+    gen_jni_source(ir, java_namespace, os.path.basename(output_jni_h_path), package_name)
 
     with open(output_jni_cpp_path, 'w', newline='\n') as f_outp:
         f_outp.write(out_lines)
     print("Wrote", output_jni_cpp_path)
 
     reset_lines()
-    gen_jni_header(ir, module_name, package_name)
+    gen_jni_header(ir, java_namespace, package_name)
     with open(output_jni_h_path, 'w', newline='\n') as f_outp:
         f_outp.write(out_lines)
     print("Wrote", output_jni_h_path)

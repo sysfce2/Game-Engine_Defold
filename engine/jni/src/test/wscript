@@ -30,7 +30,7 @@ def configure(conf):
 
     gen_java.generate(header_path   = make_path('./testapi.h'),
                      namespace      = 'dmJniTest',
-                     java_namespace = 'JniTest',
+                     java_namespace = 'TestApi',
                      package_name   = 'com.dynamo.bob.pipeline',
                      includes       = includes,
                      java_outdir    = make_path('./java'),

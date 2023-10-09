@@ -30,14 +30,14 @@ public class JniTest
 
     // The suffix of the path dictates which loader it will use
     //public static native Scene LoadFromBufferInternal(String path, byte[] buffer, Object data_resolver);
-    public static native Testapi.Vec2i TestCreateVec2i();
-    public static native Testapi.Recti TestCreateRecti();
-    public static native Testapi.Arrays TestCreateArrays();
-    public static native Testapi.Misc TestCreateMisc();
+    public static native TestApi.Vec2i TestCreateVec2i();
+    public static native TestApi.Recti TestCreateRecti();
+    public static native TestApi.Arrays TestCreateArrays();
+    public static native TestApi.Misc TestCreateMisc();
 
-    public static native Testapi.Recti TestDuplicateRecti(Testapi.Recti rect);
-    public static native Testapi.Arrays TestDuplicateArrays(Testapi.Arrays arrays);
-    public static native Testapi.Misc TestDuplicateMisc(Testapi.Misc misc);
+    public static native TestApi.Recti TestDuplicateRecti(TestApi.Recti rect);
+    public static native TestApi.Arrays TestDuplicateArrays(TestApi.Arrays arrays);
+    public static native TestApi.Misc TestDuplicateMisc(TestApi.Misc misc);
 
     public static native void TestException(String message);
 
@@ -63,37 +63,37 @@ public class JniTest
 
     @Test
     public void testConstants() {
-        assertEquals(10, Testapi.CONSTANT_INT);
-        assertEquals(2.5f, Testapi.CONSTANT_FLOAT, 0.0001f);
-        assertEquals(1.5f, Testapi.CONSTANT_DOUBLE, 0.0001);
+        assertEquals(10, TestApi.CONSTANT_INT);
+        assertEquals(2.5f, TestApi.CONSTANT_FLOAT, 0.0001f);
+        assertEquals(1.5f, TestApi.CONSTANT_DOUBLE, 0.0001);
     }
 
     @Test
     public void testEnumDefault() {
-        assertEquals(0, Testapi.TestEnumDefault.TED_VALUE_A.getValue());
-        assertEquals(1, Testapi.TestEnumDefault.TED_VALUE_B.getValue());
-        assertEquals(2, Testapi.TestEnumDefault.TED_VALUE_C.getValue());
+        assertEquals(0, TestApi.TestEnumDefault.TED_VALUE_A.getValue());
+        assertEquals(1, TestApi.TestEnumDefault.TED_VALUE_B.getValue());
+        assertEquals(2, TestApi.TestEnumDefault.TED_VALUE_C.getValue());
     }
 
     @Test
     public void testEnum() {
-        assertEquals(2, Testapi.TestEnum.TE_VALUE_A.getValue());
-        assertEquals(3, Testapi.TestEnum.TE_VALUE_B.getValue());
-        assertEquals(-4, Testapi.TestEnum.TE_VALUE_C.getValue());
-        assertEquals(5, Testapi.TestEnum.TE_VALUE_D.getValue());
-        assertEquals(10, Testapi.TestEnum.TE_VALUE_E.getValue());
+        assertEquals(2, TestApi.TestEnum.TE_VALUE_A.getValue());
+        assertEquals(3, TestApi.TestEnum.TE_VALUE_B.getValue());
+        assertEquals(-4, TestApi.TestEnum.TE_VALUE_C.getValue());
+        assertEquals(5, TestApi.TestEnum.TE_VALUE_D.getValue());
+        assertEquals(10, TestApi.TestEnum.TE_VALUE_E.getValue());
     }
 
     @Test
     public void testVec2i() {
-        Testapi.Vec2i vec = new Testapi.Vec2i();
+        TestApi.Vec2i vec = new TestApi.Vec2i();
         assertEquals(0, vec.x);
         assertEquals(0, vec.y);
     }
 
     @Test
     public void testRecti() {
-        Testapi.Recti rect = new Testapi.Recti();
+        TestApi.Recti rect = new TestApi.Recti();
         assertEquals(null, rect.min);
         assertEquals(null, rect.max);
     }
@@ -104,14 +104,14 @@ public class JniTest
 
     @Test
     public void testJniVec2i() {
-        Testapi.Vec2i vec = TestCreateVec2i();
+        TestApi.Vec2i vec = TestCreateVec2i();
         assertEquals(1, vec.x);
         assertEquals(2, vec.y);
     }
 
     @Test
     public void testJniRecti() {
-        Testapi.Recti rect = TestCreateRecti();
+        TestApi.Recti rect = TestCreateRecti();
         assertEquals(-2, rect.min.x);
         assertEquals(-3, rect.min.y);
         assertEquals(4, rect.max.x);
@@ -120,7 +120,7 @@ public class JniTest
 
     @Test
     public void testJniArrays() {
-        Testapi.Arrays arrays = TestCreateArrays();
+        TestApi.Arrays arrays = TestCreateArrays();
 
         byte[] data1 = new byte[] { 1,2,4,8 };
         assertEquals(4, arrays.data.length);
@@ -184,8 +184,8 @@ public class JniTest
 
     @Test
     public void testJniMisc() {
-        Testapi.Misc misc = TestCreateMisc();
-        assertEquals(Testapi.TestEnum.TE_VALUE_B, misc.testEnum);
+        TestApi.Misc misc = TestCreateMisc();
+        assertEquals(TestApi.TestEnum.TE_VALUE_B, misc.testEnum);
         assertEquals("Hello World!", misc.string);
         assertEquals(42, misc.opaque);
         assertEquals(null, misc.nullPtr);
@@ -209,8 +209,8 @@ public class JniTest
 
     @Test
     public void testJ2C_Recti() {
-        Testapi.Recti rect = TestCreateRecti();
-        Testapi.Recti rect2 = TestDuplicateRecti(rect);
+        TestApi.Recti rect = TestCreateRecti();
+        TestApi.Recti rect2 = TestDuplicateRecti(rect);
 
         assertEquals(-2, rect.min.x);
         assertEquals(-3, rect.min.y);
@@ -224,7 +224,7 @@ public class JniTest
 
     @Test
     public void testJ2C_Arrays() {
-        Testapi.Arrays arrays = TestCreateArrays();
+        TestApi.Arrays arrays = TestCreateArrays();
         assertEquals(4, arrays.data.length);
         assertEquals(5, arrays.data2.length);
         assertEquals(3, arrays.rects.length);
@@ -233,7 +233,7 @@ public class JniTest
         assertEquals(2, arrays.array1D_vec2i.length);
         assertEquals(2, arrays.array1D_vec2i_ptr.length);
 
-        Testapi.Arrays arrays2 = TestDuplicateArrays(arrays);
+        TestApi.Arrays arrays2 = TestDuplicateArrays(arrays);
 
 
         byte[] data1 = new byte[] { 2,3,5,9 };
@@ -280,12 +280,12 @@ public class JniTest
 
     @Test
     public void testJ2C_Misc() {
-        Testapi.Misc misc = new Testapi.Misc();
-        misc.testEnum = Testapi.TestEnum.TE_VALUE_A;
+        TestApi.Misc misc = new TestApi.Misc();
+        misc.testEnum = TestApi.TestEnum.TE_VALUE_A;
         misc.string = "Hello From Java!";
         misc.opaque = 77;
 
-        misc.forward1 = new Testapi.Forward();
+        misc.forward1 = new TestApi.Forward();
         misc.forward1.i8    = -127;
         misc.forward1.u8    = 127;
         misc.forward1.i16   = -32767;
@@ -296,9 +296,9 @@ public class JniTest
         misc.forward1.u64   = 9223372036854775807L;
         misc.forward1.b     = true;
 
-        Testapi.Misc misc2 = TestDuplicateMisc(misc);
+        TestApi.Misc misc2 = TestDuplicateMisc(misc);
 
-        assertEquals(Testapi.TestEnum.TE_VALUE_B, misc2.testEnum);
+        assertEquals(TestApi.TestEnum.TE_VALUE_B, misc2.testEnum);
         assertEquals("Hello From C!", misc2.string);
         assertEquals(78, misc2.opaque);
 
