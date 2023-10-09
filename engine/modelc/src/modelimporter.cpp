@@ -140,8 +140,8 @@ static void DestroyMesh(Mesh* mesh)
     mesh->m_Colors.SetCapacity(0);
     mesh->m_Weights.SetCapacity(0);
     mesh->m_Bones.SetCapacity(0);
-    mesh->m_TexCoord0.SetCapacity(0);
-    mesh->m_TexCoord1.SetCapacity(0);
+    mesh->m_TexCoords0.SetCapacity(0);
+    mesh->m_TexCoords1.SetCapacity(0);
 }
 
 static void DestroyModel(Model* model)

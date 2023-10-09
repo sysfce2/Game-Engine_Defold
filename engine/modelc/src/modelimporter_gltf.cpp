@@ -547,15 +547,15 @@ static void LoadPrimitives(Scene* scene, Model* model, cgltf_data* gltf_data, cg
 
                     if (attribute->index == 0)
                     {
-                        mesh->m_TexCoord0NumComponents = num_components;
+                        mesh->m_TexCoords0NumComponents = num_components;
                         data_count = mesh->m_VertexCount * num_components;
-                        mesh->m_TexCoord0.Set(fdata, data_count, data_count, false);
+                        mesh->m_TexCoords0.Set(fdata, data_count, data_count, false);
                     }
                     else if (attribute->index == 1)
                     {
-                        mesh->m_TexCoord1NumComponents = num_components;
+                        mesh->m_TexCoords1NumComponents = num_components;
                         data_count = mesh->m_VertexCount * num_components;
-                        mesh->m_TexCoord1.Set(fdata, data_count, data_count, false);
+                        mesh->m_TexCoords1.Set(fdata, data_count, data_count, false);
                     }
                 }
 
@@ -579,13 +579,13 @@ static void LoadPrimitives(Scene* scene, Model* model, cgltf_data* gltf_data, cg
             mesh->m_Material->m_IsSkinned = 1;
         }
 
-        if (mesh->m_TexCoord0.Empty())
+        if (mesh->m_TexCoords0.Empty())
         {
-            mesh->m_TexCoord0NumComponents = 2;
-            uint32_t data_count = mesh->m_VertexCount / mesh->m_TexCoord0NumComponents;
-            mesh->m_TexCoord0.SetCapacity(data_count);
-            mesh->m_TexCoord0.SetSize(data_count);
-            memset(mesh->m_TexCoord0.Begin(), 0, sizeof(data_count)*data_count);
+            mesh->m_TexCoords0NumComponents = 2;
+            uint32_t data_count = mesh->m_VertexCount / mesh->m_TexCoords0NumComponents;
+            mesh->m_TexCoords0.SetCapacity(data_count);
+            mesh->m_TexCoords0.SetSize(data_count);
+            memset(mesh->m_TexCoords0.Begin(), 0, sizeof(data_count)*data_count);
         }
     }
 }

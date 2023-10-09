@@ -120,10 +120,10 @@ namespace dmModelImporter
         dmArray<float>      m_Tangents;     // 3 floats per vertex
         dmArray<float>      m_Colors;       // 4 floats per vertex
         dmArray<float>      m_Weights;      // 4 weights per vertex
-        dmArray<float>      m_TexCoord0;    // m_TexCoord0NumComponents floats per vertex
-        dmArray<float>      m_TexCoord1;    // m_TexCoord1NumComponents floats per vertex
-        uint32_t            m_TexCoord0NumComponents; // e.g 2 or 3
-        uint32_t            m_TexCoord1NumComponents; // e.g 2 or 3
+        dmArray<float>      m_TexCoords0;   // m_TexCoords0NumComponents floats per vertex
+        dmArray<float>      m_TexCoords1;   // m_TexCoords1NumComponents floats per vertex
+        uint32_t            m_TexCoords0NumComponents; // e.g 2 or 3
+        uint32_t            m_TexCoords1NumComponents; // e.g 2 or 3
         dmArray<int32_t>    m_Bones;        // 4 bones per vertex
 
         dmArray<int32_t>    m_Indices;

@@ -336,10 +336,10 @@ static void DebugStructMesh(Mesh* mesh, int indent)
     OutputIndent(indent); printf("  m_Weights: %u\n", mesh->m_Weights.Size());
     OutputIndent(indent); printf("  m_Bones: %u\n", mesh->m_Bones.Size());
 
-    OutputIndent(indent); printf("  m_TexCoord0: %u\n", mesh->m_TexCoord0.Size());
-    OutputIndent(indent); printf("  m_TexCoord0NumComponents: %u\n", mesh->m_TexCoord0NumComponents);
-    OutputIndent(indent); printf("  m_TexCoord1: %u\n", mesh->m_TexCoord1.Size());
-    OutputIndent(indent); printf("  m_TexCoord1NumComponents: %u\n", mesh->m_TexCoord1NumComponents);
+    OutputIndent(indent); printf("  m_TexCoords0: %u\n", mesh->m_TexCoords0.Size());
+    OutputIndent(indent); printf("  m_TexCoords0NumComponents: %u\n", mesh->m_TexCoords0NumComponents);
+    OutputIndent(indent); printf("  m_TexCoords1: %u\n", mesh->m_TexCoords1.Size());
+    OutputIndent(indent); printf("  m_TexCoords1NumComponents: %u\n", mesh->m_TexCoords1NumComponents);
 
     OutputIndent(indent); printf("  m_Indices: %u\n", mesh->m_Indices.Size());
     OutputIndent(indent); printf("  m_VertexCount: %u\n", mesh->m_VertexCount);

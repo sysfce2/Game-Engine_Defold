@@ -44,10 +44,10 @@ public class ModelImporter {
         public float[] tangents;
         public float[] colors;
         public float[] weights;
-        public float[] texCoord0;
-        public float[] texCoord1;
-        public int texCoord0NumComponents = 0;
-        public int texCoord1NumComponents = 0;
+        public float[] texCoords0;
+        public float[] texCoords1;
+        public int texCoords0NumComponents = 0;
+        public int texCoords1NumComponents = 0;
         public int[] bones;
         public int[] indices;
     };
