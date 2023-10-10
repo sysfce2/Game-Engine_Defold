@@ -22,7 +22,7 @@
 #include <dlib/log.h>
 #include <dlib/dstrings.h>
 
-#define CLASS_SCENE     "com/dynamo/bob/pipeline/Modelimporter$Scene"
+#define CLASS_SCENE     "com/dynamo/bob/pipeline/ModelImporter$Scene"
 
 namespace dmModelImporter
 {

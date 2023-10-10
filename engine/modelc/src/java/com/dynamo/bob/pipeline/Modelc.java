@@ -102,6 +102,44 @@ public class Modelc {
         }
     }
 
+    public static Vec3f newVec3f(float x, float y, float z)
+    {
+        Vec3f v = new Vec3f();
+        v.x = x;
+        v.y = y;
+        v.z = z;
+        return v;
+    }
+
+    public static Vec3f fromVec3f(Vec3f v)
+    {
+        return newVec3f(v.x, v.y, v.z);
+    }
+
+    public static Aabb newAabb(Aabb _aabb)
+    {
+        Aabb aabb = new Aabb();
+        aabb.min = fromVec3f(_aabb.min);
+        aabb.max = fromVec3f(_aabb.max);
+        return aabb;
+    }
+
+    public static void vec3fAdd(Vec3f dst, Vec3f src)
+    {
+        dst.x += src.x;
+        dst.y += src.y;
+        dst.z += src.z;
+    }
+
+    public static void expandAABB(Aabb aabb, float x, float y, float z) {
+        if (x < aabb.min.x) aabb.min.x = x;
+        if (y < aabb.min.y) aabb.min.y = y;
+        if (z < aabb.min.z) aabb.min.z = z;
+        if (x > aabb.max.x) aabb.max.x = x;
+        if (y > aabb.max.y) aabb.max.y = y;
+        if (z > aabb.max.z) aabb.max.z = z;
+    }
+
     public static void DebugPrintTransform(Transform transform, int indent) {
         PrintIndent(indent);
         System.out.printf("t: %f, %f, %f\n", transform.translation.x, transform.translation.y, transform.translation.z);
