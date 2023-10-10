@@ -176,7 +176,8 @@ static jobject CreateModel(JNIEnv* env, jni::TypeInfos* types, const dmArray<job
     jobject obj = env->AllocObject(types->m_ModelJNI.cls);
     dmJNI::SetInt(env, obj, types->m_ModelJNI.index, model->m_Index);
     dmJNI::SetString(env, obj, types->m_ModelJNI.name, model->m_Name);
-    dmJNI::SetObjectDeref(env, obj, types->m_ModelJNI.parentBone, C2J_CreateBone(env, types, model->m_ParentBone));
+    // We leave bone creation for a later step
+    //dmJNI::SetObjectDeref(env, obj, types->m_ModelJNI.parentBone, C2J_CreateBone(env, types, model->m_ParentBone));
     dmJNI::SetObjectDeref(env, obj, types->m_ModelJNI.meshes, CreateMeshesArray(env, types, materials, model->m_Meshes));
     return obj;
 }
@@ -288,9 +289,6 @@ static jobjectArray CreateBonesArray(JNIEnv* env, jni::TypeInfos* types, const d
 
         if (bone->m_Parent != 0)
             dmJNI::SetObject(env, o, types->m_BoneJNI.parent, tmp[bone->m_Parent->m_Index]);
-        // else
-        //     dmJNI::SetObject(env, tmp[bone->m_Index], types->m_BoneJNI.parent, 0);
-
 
         jobjectArray children = env->NewObjectArray(bone->m_Children.Size(), types->m_BoneJNI.cls, 0);
         for (uint32_t i = 0; i < bone->m_Children.Size(); ++i)
@@ -320,13 +318,15 @@ static void CreateBones(JNIEnv* env, jni::TypeInfos* types, const dmModelImporte
 // **************************************************
 // Skins
 
-// static jobject CreateSkin(JNIEnv* env, jni::TypeInfos* types, dmModelImporter::Skin* skin)
-// {
-//     jobject obj = env->AllocObject(types->m_SkinJNI.cls);
-//     SetInt(env, obj, types->m_SkinJNI.index, skin->m_Index);
-//     SetString(env, obj, types->m_SkinJNI.name, skin->m_Name);
-//     return obj;
-// }
+static jobject CreateSkin(JNIEnv* env, jni::TypeInfos* types, const dmModelImporter::Skin* src) {
+    if (src == 0) return 0;
+    jobject obj = env->AllocObject(types->m_SkinJNI.cls);
+    dmJNI::SetString(env, obj, types->m_SkinJNI.name, src->m_Name);
+    dmJNI::SetInt(env, obj, types->m_SkinJNI.index, src->m_Index);
+    // Bones list is created in a later step
+    // Bone remap is only used when loading the skeleton, for sorting the bones hierarchy
+    return obj;
+}
 
 // Creates a list of skins, sorted on index
 static void CreateSkins(JNIEnv* env, jni::TypeInfos* types, const dmModelImporter::Scene* scene, dmArray<jobject>& skins)
@@ -338,7 +338,7 @@ static void CreateSkins(JNIEnv* env, jni::TypeInfos* types, const dmModelImporte
     for (uint32_t i = 0; i < count; ++i)
     {
         const Skin* skin = &scene->m_Skins[i];
-        skins[skin->m_Index] = jni::C2J_CreateSkin(env, types, skin);
+        skins[skin->m_Index] = CreateSkin(env, types, skin);
     }
 }
 

@@ -1357,14 +1357,13 @@ def run_tests(ctx, valgrind = False, configfile = None):
             mainclass = getattr(t, 'mainclass', '')
             classpath = Utils.to_list(getattr(t, 'classpath', []))
             java_library_paths = Utils.to_list(getattr(t, 'java_library_paths', []))
+            java_debug_flags = Utils.to_list(getattr(t, 'java_debug_flags', []))
+            java_debug_flags = ' '.join(java_debug_flags)
             jar_path = task.outputs[0].abspath()
             jar_dir = os.path.dirname(jar_path)
             java_library_paths.append(jar_dir)
             classpath.append(jar_path)
-            debug_flags = ''
-            #debug_flags = '-Xcheck:jni'
-            #debug_flags = '-Xcheck:jni -Xlog:library=info -verbose:class'
-            launch_pattern = f'java {debug_flags} -Djava.library.path={os.pathsep.join(java_library_paths)} -Djni.library.path={os.pathsep.join(java_library_paths)} -cp {os.pathsep.join(classpath)} {mainclass} -verbose:class'
+            launch_pattern = f'java {java_debug_flags} -Djava.library.path={os.pathsep.join(java_library_paths)} -Djni.library.path={os.pathsep.join(java_library_paths)} -cp {os.pathsep.join(classpath)} {mainclass} -verbose:class'
             print("launch_pattern:", launch_pattern)
 
         if 'TEST_LAUNCH_PATTERN' in t.env:

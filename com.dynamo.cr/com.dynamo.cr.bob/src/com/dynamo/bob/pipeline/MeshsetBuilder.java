@@ -46,7 +46,7 @@ import com.dynamo.rig.proto.Rig.Skeleton;
 
 @BuilderParams(name="Meshset", inExts={".dae",".gltf",".glb"}, outExt=".meshsetc")
 public class MeshsetBuilder extends Builder<Void>  {
-    public static class ResourceDataResolver implements ModelImporter.DataResolver
+    public static class ResourceDataResolver implements Modelc.DataResolver
     {
         Project project;
 
@@ -66,7 +66,7 @@ public class MeshsetBuilder extends Builder<Void>  {
             try {
                 return resource.getContent();
             } catch (IOException e) {
-                return null; // Actual errors are reported by ModeulUtil.loadScene
+                return null; // Actual errors are reported by ModelUtil.loadScene
             }
         }
     };
@@ -144,7 +144,7 @@ public class MeshsetBuilder extends Builder<Void>  {
             return;
         }
 
-        ModelImporter.Options options = new ModelImporter.Options();
+        Modelc.Options options = new Modelc.Options();
         ResourceDataResolver dataResolver = new ResourceDataResolver(this.project);
         ModelImporter.Scene scene = ModelUtil.loadScene(task.input(0).getContent(), task.input(0).getPath(), options, dataResolver);
         if (scene == null) {

@@ -170,7 +170,7 @@ public class Modelc {
 
     private static void DebugPrintFloatArray(int indent, String name, float[] arr, int count, int elements)
     {
-        if (arr == null)
+        if (arr == null || arr.length == 0)
             return;
         PrintIndent(indent);
         System.out.printf("%s:\t", name);
@@ -190,7 +190,7 @@ public class Modelc {
 
     private static void DebugPrintIntArray(int indent, String name, int[] arr, int count, int elements)
     {
-        if (arr == null)
+        if (arr == null || arr.length == 0)
             return;
         PrintIndent(indent);
         System.out.printf("%s:\t", name);
@@ -226,9 +226,9 @@ public class Modelc {
         System.out.printf("Aabb: (%f, %f, %f), (%f, %f, %f)\n", mesh.aabb.min.x,mesh.aabb.min.y,mesh.aabb.min.z, mesh.aabb.max.x,mesh.aabb.max.y,mesh.aabb.max.z);
 
         // Print out the first ten of each array
-        int max_count = 10;
-        if (max_count > mesh.vertexCount)
-            max_count = mesh.vertexCount;
+        int max_count = mesh.vertexCount;
+        if (max_count > 10)
+            max_count = 10;
         DebugPrintFloatArray(indent+1, "positions", mesh.positions, max_count, 3);
         DebugPrintFloatArray(indent+1, "normals", mesh.normals, max_count, 3);
         DebugPrintFloatArray(indent+1, "tangents", mesh.tangents, max_count, 3);
@@ -255,6 +255,8 @@ public class Modelc {
 
     private static void DebugPrintKeyFrames(String name, KeyFrame[] keys, int indent)
     {
+        if (keys == null || keys.length == 0)
+            return;
         PrintIndent(indent);
         System.out.printf("node: %s\t", name);
         for (KeyFrame key : keys)
@@ -267,9 +269,9 @@ public class Modelc {
     private static void DebugPrintNodeAnimation(NodeAnimation nodeAnimation, int indent) {
         PrintIndent(indent);
         System.out.printf("node: %s num keys: t: %d  r: %d  s: %d  time: %f / %f\n", nodeAnimation.node.name,
-            nodeAnimation.translationKeys.length,
-            nodeAnimation.rotationKeys.length,
-            nodeAnimation.scaleKeys.length,
+            nodeAnimation.translationKeys!=null?nodeAnimation.translationKeys.length:-1,
+            nodeAnimation.rotationKeys!=null?nodeAnimation.rotationKeys.length:-1,
+            nodeAnimation.scaleKeys!=null?nodeAnimation.scaleKeys.length:-1,
             nodeAnimation.startTime,
             nodeAnimation.endTime);
 

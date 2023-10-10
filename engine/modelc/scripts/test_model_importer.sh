@@ -43,7 +43,7 @@ if [ -z "${MODELIMPORTER_SHARED_LIB}" ]; then
 fi
 echo "Found ${MODELIMPORTER_SHARED_LIB}"
 
-JAR=$(find . -iname "*.jar")
+JAR=$(find . -iname "model*.jar")
 if [ -z "${JAR}" ]; then
     echo "Couldn't find the jar file!"
 fi

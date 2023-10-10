@@ -74,8 +74,8 @@ import com.dynamo.bob.pipeline.ModelImporter.Mesh;
 import com.dynamo.bob.pipeline.ModelImporter.Aabb;
 import com.dynamo.bob.pipeline.ModelImporter.Model;
 import com.dynamo.bob.pipeline.ModelImporter.Node;
-import com.dynamo.bob.pipeline.ModelImporter.Options;
 import com.dynamo.bob.pipeline.ModelImporter.Scene;
+import com.dynamo.bob.pipeline.Modelc.Options;
 
 
 import com.dynamo.rig.proto.Rig;
@@ -87,15 +87,15 @@ public class ModelUtil {
 
     private static final int MAX_SPLIT_VCOUNT = 65535;
 
-    public static Scene loadScene(byte[] content, String path, Options options, ModelImporter.DataResolver dataResolver) throws IOException {
+    public static Scene loadScene(byte[] content, String path, Options options, Modelc.DataResolver dataResolver) throws IOException {
         if (options == null)
             options = new Options();
 
-        Scene scene = ModelImporter.LoadFromBuffer(options, path, content, dataResolver);
+        Scene scene = Modelc.LoadFromBuffer(options, path, content, dataResolver);
 
         for (ModelImporter.Buffer buffer : scene.buffers)
         {
-            if (buffer.buffer == null)
+            if (buffer.buffer == 0) // void*
                 throw new IOException(String.format("Failed to load buffer '%s' for file '%s", buffer.uri, path));
         }
 
@@ -105,7 +105,7 @@ public class ModelUtil {
         return scene;
     }
 
-    public static Scene loadScene(InputStream stream, String path, Options options, ModelImporter.DataResolver dataResolver) throws IOException {
+    public static Scene loadScene(InputStream stream, String path, Options options, Modelc.DataResolver dataResolver) throws IOException {
         byte[] bytes = IOUtils.toByteArray(stream);
         return loadScene(bytes, path, options, dataResolver);
     }
@@ -113,7 +113,7 @@ public class ModelUtil {
     public static void unloadScene(Scene scene) {
     }
 
-    private static Vector3 toDDFVector3(ModelImporter.Vec4 v) {
+    private static Vector3 toDDFVector3(ModelImporter.Vec3f v) {
         return MathUtil.vecmathToDDF(new Vector3d(v.x, v.y, v.z));
     }
 
@@ -124,15 +124,15 @@ public class ModelUtil {
         return MathUtil.vecmathToDDF(translation, rotation, scale);
     }
 
-    // private static Point3d toPoint3d(ModelImporter.Vec4 v) {
+    // private static Point3d toPoint3d(ModelImporter.Vec4f v) {
     //     return new Point3d(v.x, v.y, v.z);
     // }
 
-    // private static Vector3d toVector3d(ModelImporter.Vec4 v) {
+    // private static Vector3d toVector3d(ModelImporter.Vec4f v) {
     //     return new Vector3d(v.x, v.y, v.z);
     // }
 
-    // private static Quat4d toQuat4d(ModelImporter.Vec4 v) {
+    // private static Quat4d toQuat4d(ModelImporter.Vec4f v) {
     //     return new Quat4d(v.x, v.y, v.z, v.w);
     // }
 
@@ -212,14 +212,20 @@ public class ModelUtil {
     }
 
     private static void copyKeys(ModelImporter.KeyFrame keys[], int componentSize, List<RigUtil.AnimationKey> outKeys) {
-        for (ModelImporter.KeyFrame key : keys) {
-            RigUtil.AnimationKey outKey = createKey(key.time, false, componentSize);
+        try {
+            if (keys == null || keys.length == 0)
+                return;
+            for (ModelImporter.KeyFrame key : keys) {
+                RigUtil.AnimationKey outKey = createKey(key.time, false, componentSize);
 
-            for (int i = 0; i < componentSize; ++i)
-            {
-                outKey.value[i] = key.value[i];
+                for (int i = 0; i < componentSize; ++i)
+                {
+                    outKey.value[i] = key.value[i];
+                }
+                outKeys.add(outKey);
             }
-            outKeys.add(outKey);
+        } catch (Exception e) {
+            e.printStackTrace(System.err);
         }
     }
 
@@ -230,12 +236,14 @@ public class ModelUtil {
         Rig.AnimationTrack.Builder animTrackBuilder = Rig.AnimationTrack.newBuilder();
         animTrackBuilder.setBoneId(MurmurHash.hash64(bone_name));
 
+        if (nodeAnimation.translationKeys != null && nodeAnimation.translationKeys.length > 0)
         {
             RigUtil.AnimationTrack sparseTrack = new RigUtil.AnimationTrack();
             sparseTrack.property = RigUtil.AnimationTrack.Property.POSITION;
             copyKeys(nodeAnimation.translationKeys, 3, sparseTrack.keys);
             samplePosTrack(animBuilder, animTrackBuilder, sparseTrack, duration, startTime, sampleRate, spf, true);
         }
+        if (nodeAnimation.rotationKeys != null && nodeAnimation.rotationKeys.length > 0)
         {
             RigUtil.AnimationTrack sparseTrack = new RigUtil.AnimationTrack();
             sparseTrack.property = RigUtil.AnimationTrack.Property.ROTATION;
@@ -243,6 +251,7 @@ public class ModelUtil {
 
             sampleRotTrack(animBuilder, animTrackBuilder, sparseTrack, duration, startTime, sampleRate, spf, true);
         }
+        if (nodeAnimation.scaleKeys != null && nodeAnimation.scaleKeys.length > 0)
         {
             RigUtil.AnimationTrack sparseTrack = new RigUtil.AnimationTrack();
             sparseTrack.property = RigUtil.AnimationTrack.Property.SCALE;
@@ -254,7 +263,7 @@ public class ModelUtil {
         animBuilder.addTracks(animTrackBuilder.build());
     }
 
-    public static void loadAnimations(byte[] content, String suffix, ModelImporter.Options options, ModelImporter.DataResolver dataResolver,
+    public static void loadAnimations(byte[] content, String suffix, Modelc.Options options, Modelc.DataResolver dataResolver,
                                         Rig.AnimationSet.Builder animationSetBuilder, String parentAnimationId, boolean selectLongest,
                                         ArrayList<String> animationIds) throws IOException {
         Scene scene = loadScene(content, suffix, options, dataResolver);
@@ -433,7 +442,7 @@ public class ModelUtil {
     }
 
     public static void splitMesh(ModelImporter.Mesh inMesh, List<ModelImporter.Mesh> outMeshes) {
-        int triangleCount = inMesh.indexCount / 3;
+        int triangleCount = inMesh.indices.length / 3;
         int vertexCount = inMesh.vertexCount;
 
         int vcount = 0;
@@ -450,7 +459,7 @@ public class ModelUtil {
                 newMesh = new Mesh();
                 newMesh.material = inMesh.material;
                 newMesh.name = String.format("%s_%d", inMesh.name, outMeshes.size());
-                newMesh.aabb = new Aabb(inMesh.aabb);
+                newMesh.aabb = Modelc.newAabb(inMesh.aabb);
 
                 newMesh.texCoords0NumComponents = inMesh.texCoords0NumComponents;
                 newMesh.texCoords1NumComponents = inMesh.texCoords1NumComponents;
@@ -509,7 +518,6 @@ public class ModelUtil {
             if (flush) {
 
                 newMesh.indices = newIndices.stream().mapToInt(idx->idx).toArray();
-                newMesh.indexCount = newIndices.size();
                 newMesh.vertexCount = vcount;
 
                 // Resize to actual size
@@ -578,8 +586,8 @@ public class ModelUtil {
 
         float[] positions = mesh.positions;
         float[] normals = mesh.normals;
-        float[] texCoords0 = mesh.texCoord0;
-        float[] texCoords1 = mesh.texCoord1;
+        float[] texCoords0 = mesh.texCoords0;
+        float[] texCoords1 = mesh.texCoords1;
 
         meshBuilder.setAabbMin(toDDFVector3(mesh.aabb.min));
         meshBuilder.setAabbMax(toDDFVector3(mesh.aabb.max));
@@ -608,12 +616,12 @@ public class ModelUtil {
             meshBuilder.addAllBoneIndices(()->Arrays.stream(mesh.bones).iterator());
         }
 
-        if (mesh.getTexCoords(0) != null) {
-            meshBuilder.addAllTexcoord0(toList(mesh.getTexCoords(0)));
+        if (mesh.texCoords0 != null) {
+            meshBuilder.addAllTexcoord0(toList(mesh.texCoords0));
             meshBuilder.setNumTexcoord0Components(mesh.texCoords0NumComponents);
         }
-        if (mesh.getTexCoords(1) != null) {
-            meshBuilder.addAllTexcoord1(toList(mesh.getTexCoords(1)));
+        if (mesh.texCoords1 != null) {
+            meshBuilder.addAllTexcoord1(toList(mesh.texCoords1));
             meshBuilder.setNumTexcoord0Components(mesh.texCoords1NumComponents);
         }
 
@@ -644,8 +652,8 @@ public class ModelUtil {
 
         modelBuilder.setId(MurmurHash.hash64(node.name)); // the node name is the human readable name (e.g Sword)
         modelBuilder.setLocal(toDDFTransform(node.local));
-        if (model.boneParent != null)
-            modelBuilder.setBoneId(MurmurHash.hash64(model.boneParent.name));
+        if (model.parentBone != null)
+            modelBuilder.setBoneId(MurmurHash.hash64(model.parentBone.name));
 
         return modelBuilder.build();
     }
@@ -671,17 +679,15 @@ public class ModelUtil {
         }
     }
 
-    private static ModelImporter.Vec4 calcCenter(Scene scene) {
-        ModelImporter.Vec4 center = new ModelImporter.Vec4(0.0f, 0.0f, 0.0f, 0.0f);
+    private static ModelImporter.Vec3f calcCenter(Scene scene) {
+        ModelImporter.Vec3f center = Modelc.newVec3f(0.0f, 0.0f, 0.0f);
         float count = 0.0f;
         for (Node root : scene.rootNodes) {
             ArrayList<Node> modelNodes = new ArrayList<>();
             findModelNodes(root, modelNodes);
 
             for (Node modelNode : modelNodes) {
-                center.x += modelNode.local.translation.x;
-                center.y += modelNode.local.translation.y;
-                center.z += modelNode.local.translation.z;
+                Modelc.vec3fAdd(center, modelNode.local.translation);
                 count++;
             }
         }
@@ -691,7 +697,7 @@ public class ModelUtil {
         return center;
     }
 
-    private static void shiftModels(Scene scene, ModelImporter.Vec4 center) {
+    private static void shiftModels(Scene scene, ModelImporter.Vec4f center) {
         for (Node root : scene.rootNodes) {
             ArrayList<Node> modelNodes = new ArrayList<>();
             findModelNodes(root, modelNodes);
@@ -760,7 +766,7 @@ public class ModelUtil {
         return skeleton;
     }
 
-    public static ArrayList<ModelImporter.Bone> loadSkeleton(byte[] content, String suffix, Options options, ModelImporter.DataResolver dataResolver) throws IOException {
+    public static ArrayList<ModelImporter.Bone> loadSkeleton(byte[] content, String suffix, Options options, Modelc.DataResolver dataResolver) throws IOException {
         Scene scene = loadScene(content, suffix, options, dataResolver);
         return loadSkeleton(scene);
     }
@@ -821,8 +827,8 @@ public class ModelUtil {
     }
 
     // For editor in a migration period
-    public static ModelImporter.DataResolver createFileDataResolver(File cwd) {
-        return new ModelImporter.FileDataResolver(cwd);
+    public static Modelc.DataResolver createFileDataResolver(File cwd) {
+        return new Modelc.FileDataResolver(cwd);
     }
 
 
@@ -847,12 +853,12 @@ public class ModelUtil {
             InputStream is = new FileInputStream(file);
             byte[] bytes = IOUtils.toByteArray(is);
 
-            ModelImporter.FileDataResolver dataResolver = new ModelImporter.FileDataResolver();
-            scene = loadScene(bytes, file.getPath(), new ModelImporter.Options(), dataResolver);
+            Modelc.FileDataResolver dataResolver = new Modelc.FileDataResolver();
+            scene = loadScene(bytes, file.getPath(), new Modelc.Options(), dataResolver);
 
             // **********************************
             for (ModelImporter.Buffer buffer : scene.buffers) {
-                if (buffer.buffer == null)
+                if (buffer.buffer == 0) // void*
                 {
                     System.out.printf("Unresolved buffer: %s\n");
                 }
@@ -877,9 +883,8 @@ public class ModelUtil {
         System.out.printf("Scene Nodes:\n");
 
         for (Node node : scene.nodes) {
-            System.out.printf("  Scene Node: %s  index: %d  id: %d  parent: %s\n", node.name, node.index, ModelImporter.AddressOf(node), node.parent != null ? node.parent.name : "");
-            System.out.printf("      local: id: %d\n", ModelImporter.AddressOf(node.local));
-            ModelImporter.DebugPrintTransform(node.local, 3);
+            System.out.printf("  Scene Node: %s  index: %d  parent: %s\n", node.name, node.index, node.parent != null ? node.parent.name : "");
+            Modelc.DebugPrintTransform(node.local, 3);
         }
 
 
@@ -890,13 +895,12 @@ public class ModelUtil {
 
             int bone_count = 0;
             for (Bone bone : scene.skins[0].bones) {
-                System.out.printf("  Scene Bone %d: %s  index: %d  id: %d  nodeid: %d  parent: %s\n", bone_count++, bone.name, bone.index,
-                                            ModelImporter.AddressOf(bone), ModelImporter.AddressOf(bone.node),
+                System.out.printf("  Scene Bone %d: %s  index: %d  node: %s  parent: %s\n", bone_count++, bone.name, bone.index,
+                                            bone.node != null ? bone.node.name : "",
                                             bone.parent != null ? bone.parent.name : "");
-                System.out.printf("      local: id: %d\n", ModelImporter.AddressOf(bone.node.local));
-                ModelImporter.DebugPrintTransform(bone.node.local, 3);
+                Modelc.DebugPrintTransform(bone.node.local, 3);
                 System.out.printf("      inv_bind_poser:\n");
-                ModelImporter.DebugPrintTransform(bone.invBindPose, 3);
+                Modelc.DebugPrintTransform(bone.invBindPose, 3);
             }
 
             System.out.printf("--------------------------------------------\n");
@@ -908,7 +912,7 @@ public class ModelUtil {
         for (Bone bone : bones) {
             System.out.printf("  Bone: %s  index: %d  parent: %s\n", bone.name, bone.index, bone.parent != null ? bone.parent.name : "");
             System.out.printf("      local:\n");
-            ModelImporter.DebugPrintTransform(bone.node.local, 3);
+            Modelc.DebugPrintTransform(bone.node.local, 3);
         }
         System.out.printf("--------------------------------------------\n");
 
