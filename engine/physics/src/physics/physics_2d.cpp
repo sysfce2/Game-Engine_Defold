@@ -284,7 +284,7 @@ namespace dmPhysics
     static void FlipPolygon(b2PolygonShape* shape, float horizontal, float vertical)
     {
         shape->m_centroid = FlipPoint(shape->m_centroid, horizontal, vertical);
-        int count = shape->m_vertexCount;
+        int count = shape->m_count;
 
         for (int i = 0; i < count; ++i)
         {
@@ -1090,7 +1090,7 @@ namespace dmPhysics
         ToB2(force, b2_force, scale);
         b2Vec2 b2_position;
         ToB2(position, b2_position, scale);
-        ((b2Body*)collision_object)->ApplyForce(b2_force, b2_position);
+        ((b2Body*)collision_object)->ApplyForce(b2_force, b2_position, true);
     }
 
     Vector3 GetTotalForce2D(HContext2D context, HCollisionObject2D collision_object)

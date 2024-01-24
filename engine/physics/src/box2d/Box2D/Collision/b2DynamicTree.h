@@ -125,6 +125,11 @@ public:
 	/// Build an optimal tree. Very expensive. For testing.
 	void RebuildBottomUp();
 
+	/// Shift the world origin. Useful for large worlds.
+	/// The shift formula is: position -= newOrigin
+	/// @param newOrigin the new origin with respect to the old origin
+	void ShiftOrigin(const b2Vec2& newOrigin);
+
 private:
 
 	int32 AllocateNode();
@@ -205,14 +210,14 @@ inline void b2DynamicTree::Query(T* callback, U* canCollide, const b2AABB& aabb,
 			{
 			    // Defold modifications. CanCollide
 			    // Filter out pairs early
-			    if (canCollide->CanCollide(node->userData, GetUserData(aabbProxyId)))
-		        {
+			    // if (canCollide->CanCollide(node->userData, GetUserData(aabbProxyId)))
+		        // {
                     bool proceed = callback->QueryCallback(nodeId);
                     if (proceed == false)
                     {
                         return;
                     }
-		        }
+		        // }
 			}
 			else
 			{
