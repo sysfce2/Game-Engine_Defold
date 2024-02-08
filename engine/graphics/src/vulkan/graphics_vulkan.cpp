@@ -17,6 +17,8 @@
 #include <dlib/profile.h>
 #include <dlib/dstrings.h>
 #include <dlib/log.h>
+#include <dlib/job_thread.h>
+#include <dlib/thread.h>
 
 #include <dmsdk/vectormath/cpp/vectormath_aos.h>
 
@@ -50,7 +52,7 @@ namespace dmGraphics
 
     static VulkanTexture* VulkanNewTextureInternal(const TextureCreationParams& params);
     static void           VulkanDeleteTextureInternal(VulkanTexture* texture);
-    static void           VulkanSetTextureInternal(VulkanTexture* texture, const TextureParams& params);
+    static void           VulkanSetTextureInternal(VulkanContext* context, VulkanTexture* texture, const TextureParams& params);
     static void           VulkanSetTextureParamsInternal(VulkanTexture* texture, TextureFilter minfilter, TextureFilter magfilter, TextureWrap uwrap, TextureWrap vwrap, float max_anisotropy);
     static void           CopyToTexture(VulkanContext* context, const TextureParams& params, bool useStageBuffer, uint32_t texDataSize, void* texDataPtr, VulkanTexture* textureOut);
     static VkFormat       GetVulkanFormatFromTextureFormat(TextureFormat format);
@@ -113,6 +115,7 @@ namespace dmGraphics
         m_Window                  = params.m_Window;
         m_Width                   = params.m_Width;
         m_Height                  = params.m_Height;
+        m_JobThread               = params.m_JobThread;
 
         // We need to have some sort of valid default filtering
         if (m_DefaultTextureMinFilter == TEXTURE_FILTER_DEFAULT)
@@ -680,19 +683,19 @@ namespace dmGraphics
         default_texture_params.m_Format = TEXTURE_FORMAT_RGBA;
 
         context->m_DefaultTexture2D = VulkanNewTextureInternal(default_texture_creation_params);
-        VulkanSetTextureInternal(context->m_DefaultTexture2D, default_texture_params);
+        VulkanSetTextureInternal(context, context->m_DefaultTexture2D, default_texture_params);
 
     #ifdef DM_EXPERIMENTAL_GRAPHICS_FEATURES
         default_texture_params.m_Format = TEXTURE_FORMAT_RGBA32UI;
         context->m_DefaultTexture2D32UI = VulkanNewTextureInternal(default_texture_creation_params);
-        VulkanSetTextureInternal(context->m_DefaultTexture2D32UI, default_texture_params);
+        VulkanSetTextureInternal(context, context->m_DefaultTexture2D32UI, default_texture_params);
 
         default_texture_params.m_Format                 = TEXTURE_FORMAT_RGBA;
         default_texture_creation_params.m_Depth         = 1;
         default_texture_creation_params.m_Type          = TEXTURE_TYPE_IMAGE_2D;
         default_texture_creation_params.m_UsageHintBits = TEXTURE_USAGE_HINT_STORAGE;
         context->m_DefaultStorageImage2D                = VulkanNewTextureInternal(default_texture_creation_params);
-        VulkanSetTextureInternal(context->m_DefaultStorageImage2D, default_texture_params);
+        VulkanSetTextureInternal(context, context->m_DefaultStorageImage2D, default_texture_params);
     #endif
 
         default_texture_creation_params.m_UsageHintBits = TEXTURE_USAGE_HINT_SAMPLE;
@@ -1105,6 +1108,25 @@ namespace dmGraphics
             goto bail;
         }
 
+        context->m_AsyncProcessingSupport = dmThread::PlatformHasThreadSupport();
+        if (context->m_AsyncProcessingSupport)
+        {
+            InitializeSetTextureAsyncState(context->m_SetTextureAsyncState);
+
+            if (context->m_JobThread == 0x0)
+            {
+                dmLogError("AsyncInitialize: Platform has async support but no job thread. Fallback to single thread processing.");
+                context->m_AsyncProcessingSupport = 0;
+            }
+            /*
+            else if(!ValidateAsyncJobProcessing(context))
+            {
+                dmLogDebug("AsyncInitialize: Failed to verify async job processing. Fallback to single thread processing.");
+                context->m_AsyncProcessingSupport = 0;
+            }
+            */
+        }
+
         return true;
 bail:
         if (context->m_SwapChain)
@@ -1197,6 +1219,8 @@ bail:
                 vkDestroyInstance(context->m_Instance, 0);
                 context->m_Instance = VK_NULL_HANDLE;
             }
+
+            ResetSetTextureAsyncState(context->m_SetTextureAsyncState);
 
             delete context;
             g_VulkanContext = 0x0;
@@ -3641,7 +3665,7 @@ bail:
         }
     }
 
-    static void VulkanSetTextureInternal(VulkanTexture* texture, const TextureParams& params)
+    static void VulkanSetTextureInternal(VulkanContext* context, VulkanTexture* texture, const TextureParams& params)
     {
         // Same as graphics_opengl.cpp
         switch (params.m_Format)
@@ -3653,8 +3677,8 @@ bail:
             default:break;
         }
 
-        assert(params.m_Width  <= g_VulkanContext->m_PhysicalDevice.m_Properties.limits.maxImageDimension2D);
-        assert(params.m_Height <= g_VulkanContext->m_PhysicalDevice.m_Properties.limits.maxImageDimension2D);
+        assert(params.m_Width  <= context->m_PhysicalDevice.m_Properties.limits.maxImageDimension2D);
+        assert(params.m_Height <= context->m_PhysicalDevice.m_Properties.limits.maxImageDimension2D);
 
         if (texture->m_MipMapCount == 1 && params.m_MipMap > 0)
         {
@@ -3674,8 +3698,8 @@ bail:
             return;
         }
 
-        LogicalDevice& logical_device       = g_VulkanContext->m_LogicalDevice;
-        VkPhysicalDevice vk_physical_device = g_VulkanContext->m_PhysicalDevice.m_Device;
+        LogicalDevice& logical_device       = context->m_LogicalDevice;
+        VkPhysicalDevice vk_physical_device = context->m_PhysicalDevice.m_Device;
 
         // Note: There's no RGB support in Vulkan. We have to expand this to four channels
         // TODO: Can we use R11G11B10 somehow?
@@ -3707,10 +3731,10 @@ bail:
         {
             if (texture->m_Format != vk_format || texture->m_Width != params.m_Width || texture->m_Height != params.m_Height)
             {
-                DestroyResourceDeferred(g_VulkanContext->m_MainResourcesToDestroy[g_VulkanContext->m_SwapChain->m_ImageIndex], texture);
-                texture->m_Format      = vk_format;
-                texture->m_Width       = params.m_Width;
-                texture->m_Height      = params.m_Height;
+                DestroyResourceDeferred(context->m_MainResourcesToDestroy[context->m_SwapChain->m_ImageIndex], texture);
+                texture->m_Format = vk_format;
+                texture->m_Width  = params.m_Width;
+                texture->m_Height = params.m_Height;
 
                 // Note:
                 // If the texture has requested mipmaps and we need to recreate the texture, make sure to allocate enough mipmaps.
@@ -3788,7 +3812,7 @@ bail:
         if (!memoryless)
         {
             tex_data_size = (int) ceil((float) tex_data_size / 8.0f);
-            CopyToTexture(g_VulkanContext, params, use_stage_buffer, tex_data_size, tex_data_ptr, texture);
+            CopyToTexture(context, params, use_stage_buffer, tex_data_size, tex_data_ptr, texture);
         }
 
         if (format_orig == TEXTURE_FORMAT_RGB)
@@ -3855,14 +3879,50 @@ bail:
     static void VulkanSetTexture(HTexture texture, const TextureParams& params)
     {
         VulkanTexture* tex = GetAssetFromContainer<VulkanTexture>(g_VulkanContext->m_AssetHandleContainer, texture);
-        VulkanSetTextureInternal(tex, params);
+        VulkanSetTextureInternal(g_VulkanContext, tex, params);
+    }
+
+    static int AsyncProcessCallback(void* _context, void* data)
+    {
+        VulkanContext* context     = (VulkanContext*) _context;
+        uint16_t param_array_index = (uint16_t) (size_t) data;
+        SetTextureAsyncParams ap   = GetSetTextureAsyncParams(context->m_SetTextureAsyncState, param_array_index);
+
+        VulkanTexture* tex = GetAssetFromContainer<VulkanTexture>(context->m_AssetHandleContainer, ap.m_Texture);
+        VulkanSetTextureInternal(context, tex, ap.m_Params);
+
+        tex->m_DataState  &= ~(1<<ap.m_Params.m_MipMap);
+
+        return 0;
+    }
+
+    // Called on thread where we update (which should be the main thread)
+    static void AsyncCompleteCallback(void* _context, void* data, int result)
+    {
+        VulkanContext* context     = (VulkanContext*) _context;
+        uint16_t param_array_index = (uint16_t) (size_t) data;
+        ReturnSetTextureAsyncIndex(context->m_SetTextureAsyncState, param_array_index);
     }
 
     static void VulkanSetTextureAsync(HTexture texture, const TextureParams& params)
     {
-        // Async texture loading is not supported in Vulkan, defaulting to syncronous loading until then
         VulkanTexture* tex = GetAssetFromContainer<VulkanTexture>(g_VulkanContext->m_AssetHandleContainer, texture);
-        VulkanSetTextureInternal(tex, params);
+
+        if (g_VulkanContext->m_AsyncProcessingSupport)
+        {
+            tex->m_DataState          |= 1<<params.m_MipMap;
+            uint16_t param_array_index = PushSetTextureAsyncState(g_VulkanContext->m_SetTextureAsyncState, texture, params);
+
+            dmJobThread::PushJob(g_VulkanContext->m_JobThread,
+                AsyncProcessCallback,
+                AsyncCompleteCallback,
+                (void*) g_VulkanContext,
+                (void*) (uintptr_t) param_array_index);
+        }
+        else
+        {
+            VulkanSetTextureInternal(g_VulkanContext, tex, params);
+        }
     }
 
     static float GetMaxAnisotrophyClamped(float max_anisotropy_requested)

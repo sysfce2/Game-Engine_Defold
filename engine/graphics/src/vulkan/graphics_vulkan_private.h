@@ -94,6 +94,7 @@ namespace dmGraphics
         uint16_t          m_Depth;
         uint16_t          m_OriginalWidth;
         uint16_t          m_OriginalHeight;
+        volatile uint16_t m_DataState; // data state per mip-map (mipX = bitX). 0=ok, 1=pending
         uint16_t          m_MipMapCount         : 5;
         uint16_t          m_TextureSamplerIndex : 10;
         uint32_t          m_Destroyed           : 1;
@@ -242,6 +243,7 @@ namespace dmGraphics
         VkQueue       m_GraphicsQueue;
         VkQueue       m_PresentQueue;
         VkCommandPool m_CommandPool;
+        VkCommandPool m_CommandPoolWorker;
     };
 
     struct ShaderModule
@@ -369,6 +371,8 @@ namespace dmGraphics
     {
         VulkanContext(const ContextParams& params, const VkInstance vk_instance);
 
+        SetTextureAsyncState               m_SetTextureAsyncState;
+        dmJobThread::HContext              m_JobThread;
         dmPlatform::HWindow                m_Window;
         dmPlatform::WindowResizeCallback   m_WindowResizeCallback;
         HTexture                           m_TextureUnits[DM_MAX_TEXTURE_UNITS];
@@ -424,14 +428,15 @@ namespace dmGraphics
         uint32_t                        m_Height;
         uint32_t                        m_WindowWidth;
         uint32_t                        m_WindowHeight;
-        uint32_t                        m_FrameBegun           : 1;
-        uint32_t                        m_CurrentFrameInFlight : 1;
-        uint32_t                        m_NumFramesInFlight    : 2;
-        uint32_t                        m_VerifyGraphicsCalls  : 1;
-        uint32_t                        m_ViewportChanged      : 1;
-        uint32_t                        m_CullFaceChanged      : 1;
-        uint32_t                        m_UseValidationLayers  : 1;
-        uint32_t                        m_RenderDocSupport     : 1;
+        uint32_t                        m_AsyncProcessingSupport : 1;
+        uint32_t                        m_FrameBegun             : 1;
+        uint32_t                        m_CurrentFrameInFlight   : 1;
+        uint32_t                        m_NumFramesInFlight      : 2;
+        uint32_t                        m_VerifyGraphicsCalls    : 1;
+        uint32_t                        m_ViewportChanged        : 1;
+        uint32_t                        m_CullFaceChanged        : 1;
+        uint32_t                        m_UseValidationLayers    : 1;
+        uint32_t                        m_RenderDocSupport       : 1;
     };
 
     // Implemented in graphics_vulkan_context.cpp
