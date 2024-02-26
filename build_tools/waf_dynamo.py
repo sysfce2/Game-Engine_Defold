@@ -77,6 +77,63 @@ def platform_supports_feature(platform, feature, data):
         return platform in ['x86_64-linux', 'x86_64-macos', 'arm64-macos', 'win32', 'x86_64-win32']
     return waf_dynamo_vendor.supports_feature(platform, feature, data)
 
+def platform_graphics_libs(platform):
+    graphics_libs = []
+
+    use_opengl = False
+    use_vulkan = False
+
+    if platform in ('arm64-macos', 'x86_64-macos', 'arm64-nx64'):
+        use_opengl = Options.options.with_opengl
+        use_vulkan = True
+    else:
+        use_opengl = True
+        use_vulkan = Options.options.with_vulkan
+
+    if use_opengl and platform_supports_feature(platform, 'opengl', {}):
+        graphics_libs.append('GRAPHICS_OPENGL')
+        graphics_libs.append('OPENGL')
+
+    if use_vulkan and platform_supports_feature(platform, 'vulkan', {}):
+        graphics_libs.append('GRAPHICS_VULKAN')
+        graphics_libs.append('VULKAN')
+
+    if platform in ('x86_64-ps4'):
+        graphics_libs = 'GRAPHICS'
+
+    if platform in ('x86_64-ps5'):
+        graphics_libs = 'GRAPHICS'
+
+    return graphics_libs
+
+def platform_graphics_symbols(platform):
+    graphics_lib_symbols = []
+
+    use_opengl = False
+    use_vulkan = False
+
+    if platform in ('arm64-macos', 'x86_64-macos', 'arm64-nx64'):
+        use_opengl = Options.options.with_opengl
+        use_vulkan = True
+    else:
+        use_opengl = True
+        use_vulkan = Options.options.with_vulkan
+
+    if use_opengl and platform_supports_feature(platform, 'opengl', {}):
+        graphics_lib_symbols.append('GraphicsAdapterOpenGL')
+
+    if use_vulkan and platform_supports_feature(platform, 'vulkan', {}):
+        graphics_lib_symbols.append('GraphicsAdapterVulkan')
+
+    if platform in ('x86_64-ps4'):
+        graphics_lib_symbols = ['GraphicsAdapterPS4']
+
+    if platform in ('x86_64-ps5'):
+        graphics_lib_symbols = ['GraphicsAdapterPS5']
+
+    return graphics_lib_symbols
+
+
 def platform_setup_tools(ctx, build_util):
     return waf_dynamo_vendor.setup_tools(ctx, build_util)
 
@@ -1822,9 +1879,9 @@ def detect(conf):
             conf.env['STLIB_RECORD'] = 'record_null'
     conf.env['STLIB_RECORD_NULL'] = 'record_null'
 
-    conf.env['STLIB_GRAPHICS']          = ['graphics', 'graphics_transcoder_basisu', 'basis_transcoder']
-    conf.env['STLIB_GRAPHICS_VULKAN']   = ['graphics_vulkan', 'graphics_transcoder_basisu', 'basis_transcoder']
-    conf.env['STLIB_GRAPHICS_NULL']     = ['graphics_null', 'graphics_transcoder_null']
+    conf.env['STLIB_GRAPHICS_OPENGL'] = ['graphics_opengl', 'graphics_transcoder_basisu', 'basis_transcoder']
+    conf.env['STLIB_GRAPHICS_VULKAN'] = ['graphics_vulkan', 'graphics_transcoder_basisu', 'basis_transcoder']
+    conf.env['STLIB_GRAPHICS_NULL']   = ['graphics_null', 'graphics_transcoder_null']
 
     conf.env['STLIB_PLATFORM']      = ['platform']
     conf.env['STLIB_PLATFORM_NULL'] = ['platform_null']
@@ -1915,5 +1972,6 @@ def options(opt):
     opt.add_option('--show-includes', action='store_true', default=False, dest='show_includes', help='Outputs the tree of includes')
     opt.add_option('--static-analyze', action='store_true', default=False, dest='static_analyze', help='Enables static code analyzer')
     opt.add_option('--with-valgrind', action='store_true', default=False, dest='with_valgrind', help='Enables usage of valgrind')
-    opt.add_option('--with-vulkan', action='store_true', default=False, dest='with_vulkan', help='Enables Vulkan as graphics backend')
+    opt.add_option('--with-opengl', action='store_true', default=False, dest='with_opengl', help='Enables OpenGL as the graphics backend')
+    opt.add_option('--with-vulkan', action='store_true', default=False, dest='with_vulkan', help='Enables Vulkan as the graphics backend')
     opt.add_option('--with-vulkan-validation', action='store_true', default=False, dest='with_vulkan_validation', help='Enables Vulkan validation layers (on osx and ios)')

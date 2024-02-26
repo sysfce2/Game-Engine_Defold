@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 import os, re
-from waf_dynamo import dmsdk_add_files, copy_file_task, apidoc_extract_task, platform_supports_feature
+from waf_dynamo import dmsdk_add_files, copy_file_task, apidoc_extract_task, platform_graphics_libs, platform_graphics_symbols
 import waflib.Options
 
 def options(opt):
@@ -73,26 +73,8 @@ def build(bld):
         exported_symbols.append('AudioDecoderTremolo')
         additional_libs.append('TREMOLO')
 
-    graphics_lib = 'GRAPHICS DMGLFW'
-    graphics_lib_symbols = ['GraphicsAdapterOpenGL']
-
-    if waflib.Options.options.with_vulkan:
-        graphics_lib += ' GRAPHICS_VULKAN VULKAN'
-        graphics_lib_symbols.append('GraphicsAdapterVulkan')
-
-    if bld.env['PLATFORM'] in ('arm64-nx64',):
-        graphics_lib = 'GRAPHICS_VULKAN DMGLFW VULKAN'
-        graphics_lib_symbols = ['GraphicsAdapterVulkan']
-
-    if bld.env['PLATFORM'] in ('x86_64-ps4',):
-        graphics_lib = 'GRAPHICS'
-        graphics_lib_symbols = ['GraphicsAdapterPS4']
-
-    if bld.env['PLATFORM'] in ('x86_64-ps5'):
-        graphics_lib = 'GRAPHICS'
-        graphics_lib_symbols = ['GraphicsAdapterPS5']
-
-    exported_symbols += graphics_lib_symbols
+    graphics_lib = ['DMGLFW'] + platform_graphics_libs(bld.env['PLATFORM'])
+    exported_symbols += platform_graphics_symbols(bld.env['PLATFORM'])
 
     if 'android' in bld.env['PLATFORM']:
         sound_lib = 'SOUND OPENAL_SOFT OPENSLES'
@@ -106,7 +88,6 @@ def build(bld):
         sound_lib = 'SOUND OPENAL'
 
     sound_lib = sound_lib.split()
-    graphics_lib = graphics_lib.split()
 
     dynamo_home = os.getenv('DYNAMO_HOME')
 

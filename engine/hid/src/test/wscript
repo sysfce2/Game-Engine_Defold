@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import os
-from waf_dynamo import platform_supports_feature
+from waf_dynamo import platform_graphics_libs, platform_graphics_symbols
 from BuildUtility import create_build_utility
 from waflib import Options
 
@@ -21,6 +21,15 @@ def build(bld):
                       target   = 'test_hid',
                       source   = 'test_hid.cpp')
 
+    graphics_lib = ['DMGLFW'] + platform_graphics_libs(bld.env.PLATFORM)
+    exported_symbols = platform_graphics_symbols(bld.env.PLATFORM)
+
+    if bld.env.PLATFORM in ('arm64-nx64') and 'DMGLFW' in graphics_lib:
+        graphics_lib.remove('DMGLFW')
+    else:
+        graphics_lib.append('OPENGL')
+
+    """
     graphics_lib = ['GRAPHICS', 'DMGLFW']
     graphics_lib_symbols = 'GraphicsAdapterOpenGL'
     if platform_supports_feature(bld.env.PLATFORM, 'opengl', {}):
@@ -34,10 +43,8 @@ def build(bld):
         graphics_lib = ['GRAPHICS_NULL']
         graphics_lib_symbols = 'GraphicsAdapterNull'
 
-    if bld.env.PLATFORM in ('arm64-nx64') and 'DMGLFW' in graphics_lib:
-        graphics_lib.remove('DMGLFW')
-
     exported_symbols = [graphics_lib_symbols]
+    """
 
     glfw_js = '%s/ext/lib/%s/js/library_glfw.js' % (bld.env.DYNAMO_HOME, bld.env.PLATFORM)
 

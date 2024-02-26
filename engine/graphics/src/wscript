@@ -63,13 +63,11 @@ def build(bld):
                         source          = bld.path.ant_glob(['*.cpp', 'opengl/*.cpp']) + proto_cpp_source,
                         use             = 'DDF DLIB',
                         defines         = opengl_defines,
-                        target          = 'graphics')
+                        target          = 'graphics_opengl')
 
-    bld.add_group()
+    # bld.add_group()
 
     if platform_supports_feature(bld.env.PLATFORM, 'vulkan', {}):
-        print("platform_supports_feature", bld.env.PLATFORM, 'vulkan')
-
         vulkan_defines = []
 
         if waflib.Options.options.with_vulkan_validation:
