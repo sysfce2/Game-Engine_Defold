@@ -1,20 +1,18 @@
 #! /usr/bin/env python
 import os
 import waflib.Options
+from waf_dynamo import platform_graphics_libs, platform_graphics_symbols
 
 def configure(conf):
     pass
 
 def build(bld):
-    graphics_lib = 'GRAPHICS'
-    graphics_adapter = 'GraphicsAdapterOpenGL'
-    if waflib.Options.options.with_vulkan:
-        graphics_lib = 'GRAPHICS_VULKAN'
-        graphics_adapter = 'GraphicsAdapterVulkan'
+    graphics_lib = ['DMGLFW'] + platform_graphics_libs(bld.env['PLATFORM'])
+    exported_symbols = platform_graphics_symbols(bld.env['PLATFORM'])
 
     b = bld.program(features         = 'c cprogram cxx',
-                    use              = 'SOCKET HID INPUT DDF DLIB PROFILE_NULL PLATFORM DMGLFW X ' + graphics_lib,
-                    exported_symbols = [graphics_adapter],
+                    use              = ['SOCKET','HID','INPUT','DDF','DLIB','PROFILE_NULL','PLATFORM','DMGLFW','X '] + graphics_lib,
+                    exported_symbols = exported_symbols,
                     source           = 'main.cpp',
                     target           = 'gdc')
 
