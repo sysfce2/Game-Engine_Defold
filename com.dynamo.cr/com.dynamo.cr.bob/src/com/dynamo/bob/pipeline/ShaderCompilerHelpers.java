@@ -177,7 +177,7 @@ public class ShaderCompilerHelpers {
         }
     }
 
-    static public SPIRVCompileResult compileGLSLToSPIRV(String shaderSource, ES2ToES3Converter.ShaderType shaderType, String resourceOutput, String targetProfile, boolean isDebug, boolean soft_fail)  throws IOException, CompileExceptionError {
+    static public SPIRVCompileResult compileGLSLToSPIRVLegacy(String shaderSource, ES2ToES3Converter.ShaderType shaderType, String resourceOutput, String targetProfile, boolean isDebug, boolean soft_fail)  throws IOException, CompileExceptionError {
         SPIRVCompileResult res = new SPIRVCompileResult();
 
         Result result;
@@ -324,6 +324,46 @@ public class ShaderCompilerHelpers {
         return res;
     }
 
+    static public byte[] compileSPIRVFromGLSL(String shaderSource, ES2ToES3Converter.ShaderType shaderType, String resourceOutput) throws IOException, CompileExceptionError {
+        File file_in_glsl = File.createTempFile(FilenameUtils.getName(resourceOutput), ".glsl");
+        FileUtil.deleteOnExit(file_in_glsl);
+        FileUtils.writeByteArrayToFile(file_in_glsl, shaderSource.getBytes());
+
+        File file_out_spv = File.createTempFile(FilenameUtils.getName(resourceOutput), ".spv");
+        FileUtil.deleteOnExit(file_out_spv);
+
+        Result result = null;
+        if (shaderType == ES2ToES3Converter.ShaderType.COMPUTE_SHADER) {
+
+        } else {
+            String spirvShaderStage = (shaderType == ES2ToES3Converter.ShaderType.VERTEX_SHADER ? "vert" : "frag");
+            String shaderVersionStr = "140";
+            result = Exec.execResult(Bob.getExe(Platform.getHostPlatform(), "glslc"),
+                "-w",
+                "-fauto-bind-uniforms",
+                "-fauto-map-locations",
+                "-std=" + shaderVersionStr,
+                "-fshader-stage=" + spirvShaderStage,
+                "-o", file_out_spv.getAbsolutePath(),
+                file_in_glsl.getAbsolutePath());
+        }
+
+        checkResult(getResultString(result), null, resourceOutput);
+
+        File file_out_spv_opt = File.createTempFile(FilenameUtils.getName(resourceOutput), ".spv");
+        FileUtil.deleteOnExit(file_out_spv_opt);
+
+        // Run optimization pass
+        result = Exec.execResult(Bob.getExe(Platform.getHostPlatform(), "spirv-opt"),
+            "-O",
+            file_out_spv.getAbsolutePath(),
+            "-o", file_out_spv_opt.getAbsolutePath());
+
+        checkResult(getResultString(result), null, resourceOutput);
+
+        return FileUtils.readFileToByteArray(file_out_spv_opt);
+    }
+
     static private class SortBindingsComparator implements Comparator<SPIRVReflector.Resource> {
         public int compare(SPIRVReflector.Resource a, SPIRVReflector.Resource b) {
             return a.binding - b.binding;
@@ -378,45 +418,42 @@ public class ShaderCompilerHelpers {
         return resourceBindingBuilder;
     }
 
-    static public ShaderProgramBuilder.ShaderBuildResult buildSpirvFromGLSL(String source, ES2ToES3Converter.ShaderType shaderType, String resourceOutputPath, String targetProfile, boolean isDebug, boolean soft_fail)  throws IOException, CompileExceptionError {
-        source = Common.stripComments(source);
-        SPIRVCompileResult compile_res = compileGLSLToSPIRV(source, shaderType, resourceOutputPath, targetProfile, isDebug, soft_fail);
-
-        if (compile_res.compile_warnings.size() > 0)
+    static public ShaderProgramBuilder.ShaderBuildResult shaderBuildResultFromSPIRVCompileResult(SPIRVCompileResult compileResult) throws IOException, CompileExceptionError {
+        if (compileResult.compile_warnings.size() > 0)
         {
-            return new ShaderProgramBuilder.ShaderBuildResult(compile_res.compile_warnings);
+            return new ShaderProgramBuilder.ShaderBuildResult(compileResult.compile_warnings);
         }
 
         ShaderDesc.Shader.Builder builder = ShaderDesc.Shader.newBuilder();
         builder.setLanguage(ShaderDesc.Language.LANGUAGE_SPIRV);
-        builder.setSource(ByteString.copyFrom(compile_res.source));
+        builder.setSource(ByteString.copyFrom(compileResult.source));
 
-        for (SPIRVReflector.Resource input : compile_res.inputs) {
-            ShaderDesc.ResourceBinding.Builder resourceBindingBuilder = SPIRVResourceToResourceBindingBuilder(compile_res.types, input);
+        for (SPIRVReflector.Resource input : compileResult.inputs) {
+            ShaderDesc.ResourceBinding.Builder resourceBindingBuilder = SPIRVResourceToResourceBindingBuilder(compileResult.types, input);
             builder.addInputs(resourceBindingBuilder);
         }
 
-        for (SPIRVReflector.Resource output : compile_res.outputs) {
-            ShaderDesc.ResourceBinding.Builder resourceBindingBuilder = SPIRVResourceToResourceBindingBuilder(compile_res.types, output);
+        for (SPIRVReflector.Resource output : compileResult.outputs) {
+            ShaderDesc.ResourceBinding.Builder resourceBindingBuilder = SPIRVResourceToResourceBindingBuilder(compileResult.types, output);
             builder.addOutputs(resourceBindingBuilder);
         }
 
-        for (SPIRVReflector.Resource ubo : compile_res.ubos) {
-            ShaderDesc.ResourceBinding.Builder resourceBindingBuilder = SPIRVResourceToResourceBindingBuilder(compile_res.types, ubo);
+        for (SPIRVReflector.Resource ubo : compileResult.ubos) {
+            ShaderDesc.ResourceBinding.Builder resourceBindingBuilder = SPIRVResourceToResourceBindingBuilder(compileResult.types, ubo);
             builder.addUniformBuffers(resourceBindingBuilder);
         }
 
-        for (SPIRVReflector.Resource ssbo : compile_res.ssbos) {
-            ShaderDesc.ResourceBinding.Builder resourceBindingBuilder = SPIRVResourceToResourceBindingBuilder(compile_res.types, ssbo);
+        for (SPIRVReflector.Resource ssbo : compileResult.ssbos) {
+            ShaderDesc.ResourceBinding.Builder resourceBindingBuilder = SPIRVResourceToResourceBindingBuilder(compileResult.types, ssbo);
             builder.addStorageBuffers(resourceBindingBuilder);
         }
 
-        for (SPIRVReflector.Resource texture : compile_res.textures) {
-            ShaderDesc.ResourceBinding.Builder resourceBindingBuilder = SPIRVResourceToResourceBindingBuilder(compile_res.types, texture);
+        for (SPIRVReflector.Resource texture : compileResult.textures) {
+            ShaderDesc.ResourceBinding.Builder resourceBindingBuilder = SPIRVResourceToResourceBindingBuilder(compileResult.types, texture);
             builder.addTextures(resourceBindingBuilder);
         }
 
-        for (SPIRVReflector.ResourceType type : compile_res.types) {
+        for (SPIRVReflector.ResourceType type : compileResult.types) {
             ShaderDesc.ResourceTypeInfo.Builder resourceTypeInfoBuilder = ShaderDesc.ResourceTypeInfo.newBuilder();
 
             resourceTypeInfoBuilder.setName(type.name);
@@ -425,7 +462,7 @@ public class ShaderCompilerHelpers {
             for (SPIRVReflector.ResourceMember member : type.members) {
                 ShaderDesc.ResourceMember.Builder typeMemberBuilder = ShaderDesc.ResourceMember.newBuilder();
 
-                ShaderDesc.ResourceType.Builder typeBuilder = getResourceTypeBuilder(compile_res.types, member.type);
+                ShaderDesc.ResourceType.Builder typeBuilder = getResourceTypeBuilder(compileResult.types, member.type);
                 typeMemberBuilder.setType(typeBuilder);
                 typeMemberBuilder.setName(member.name);
                 typeMemberBuilder.setNameHash(MurmurHash.hash64(member.name));
@@ -438,5 +475,94 @@ public class ShaderCompilerHelpers {
         }
 
         return new ShaderProgramBuilder.ShaderBuildResult(builder);
+    }
+
+    static public ShaderProgramBuilder.ShaderBuildResult crossCompileShaderFromSPIRV(byte[] spirvSource, ES2ToES3Converter.ShaderType shaderType, ShaderDesc.Language shaderLanguage, String resourceOutputPath, String spirvTargetProfile) throws IOException, CompileExceptionError {
+        File file_in_spv = File.createTempFile(FilenameUtils.getName(resourceOutputPath), ".spv");
+        FileUtil.deleteOnExit(file_in_spv);
+        FileUtils.writeByteArrayToFile(file_in_spv, spirvSource);
+
+        File file_in = file_in_spv;
+        File file_out = file_in_spv;
+        Result result;
+
+        if (shaderLanguage != ShaderDesc.Language.LANGUAGE_SPIRV) {
+            File file_compiled_out = File.createTempFile(FilenameUtils.getName(resourceOutputPath), ".shader");
+            FileUtil.deleteOnExit(file_compiled_out);
+            //file_in = file_compiled_out;
+
+            String shaderVersionStr = "";
+            switch(shaderLanguage) {
+                case LANGUAGE_GLSL_SM120:
+                    shaderVersionStr = "120";
+                    break;
+                case LANGUAGE_GLSL_SM140:
+                    shaderVersionStr = "140";
+                    break;
+                case LANGUAGE_GLES_SM100:
+                    shaderVersionStr = "100";
+                    break;
+                case LANGUAGE_GLES_SM300:
+                    shaderVersionStr = "300";
+                    break;
+                case LANGUAGE_GLSL_SM430:
+                    shaderVersionStr = "430";
+                    break;
+                default:
+                    // Throw error or somethign
+                    break;
+            }
+
+            result = Exec.execResult(Bob.getExe(Platform.getHostPlatform(), "spirv-cross"),
+                file_in_spv.getAbsolutePath(),
+                "--output", file_compiled_out.getAbsolutePath(),
+                "--version", shaderVersionStr);
+
+            SPIRVCompileResult res = new SPIRVCompileResult();
+            res.source             = FileUtils.readFileToByteArray(file_out);
+            return shaderBuildResultFromSPIRVCompileResult(res);
+        }
+
+        // Run reflection pass
+        File file_out_refl = File.createTempFile(FilenameUtils.getName(resourceOutputPath), ".json");
+        FileUtil.deleteOnExit(file_out_refl);
+
+        result = Exec.execResult(Bob.getExe(Platform.getHostPlatform(), "spirv-cross"),
+            file_in.getAbsolutePath(),
+            "--output",file_out_refl.getAbsolutePath(),
+            "--reflect");
+
+        checkResult(getResultString(result), null, resourceOutputPath);
+
+        String result_json       = FileUtils.readFileToString(file_out_refl, StandardCharsets.UTF_8);
+        SPIRVReflector reflector = new SPIRVReflector(result_json);
+
+        SPIRVCompileResult res = new SPIRVCompileResult();
+        res.inputs             = reflector.getInputs();
+        res.outputs            = reflector.getOutputs();
+        res.ubos               = reflector.getUBOs();
+        res.ssbos              = reflector.getSsbos();
+        res.textures           = reflector.getTextures();
+        res.types              = reflector.getTypes();
+        res.source             = FileUtils.readFileToByteArray(file_out);
+
+        Collections.sort(res.inputs, new SortBindingsComparator());
+        Collections.sort(res.outputs, new SortBindingsComparator());
+        Collections.sort(res.ubos, new SortBindingsComparator());
+        Collections.sort(res.ssbos, new SortBindingsComparator());
+        Collections.sort(res.textures, new SortBindingsComparator());
+
+        return shaderBuildResultFromSPIRVCompileResult(res);
+    }
+
+    static public ShaderProgramBuilder.ShaderBuildResult buildSpirvFromGLSL(String source, ES2ToES3Converter.ShaderType shaderType, String resourceOutputPath, String targetProfile, boolean isDebug, boolean soft_fail, boolean use_legacy_pipeline)  throws IOException, CompileExceptionError {
+        SPIRVCompileResult compileResult = null;
+        if (use_legacy_pipeline) {
+            source = Common.stripComments(source);
+            compileResult = compileGLSLToSPIRVLegacy(source, shaderType, resourceOutputPath, targetProfile, isDebug, soft_fail);
+        } else {
+            //compileResult = compileSPIRVFromGLSL(source, shaderType, resourceOutputPath);
+        }
+        return shaderBuildResultFromSPIRVCompileResult(compileResult);
     }
 }

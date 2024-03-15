@@ -165,8 +165,8 @@ public abstract class ShaderProgramBuilder extends Builder<ShaderPreprocessor> {
             throw new CompileExceptionError("Unknown platform for shader program '" + resourceOutputPath + "'': " + platform);
         }
 
-        String finalShaderSource                          = shaderPreprocessor.getCompiledSource();
-        IShaderCompiler shaderCompiler                    = project.getShaderCompiler(platformKey);
+        String finalShaderSource       = shaderPreprocessor.getCompiledSource();
+        IShaderCompiler shaderCompiler = project.getShaderCompiler(platformKey);
         ArrayList<ShaderBuildResult> shaderCompilerResult = shaderCompiler.compile(finalShaderSource, shaderType, resourceOutputPath, resourceOutputPath, isDebug, outputSpirv, false);
         return buildResultsToShaderDescBuildResults(shaderCompilerResult, shaderType);
     }
@@ -196,8 +196,7 @@ public abstract class ShaderProgramBuilder extends Builder<ShaderPreprocessor> {
         return variantCompileResult;
     }
 
-    public ShaderDesc getCompiledShaderDesc(Task<ShaderPreprocessor> task, ES2ToES3Converter.ShaderType shaderType)
-            throws IOException, CompileExceptionError {
+    public ShaderDesc getCompiledShaderDesc(Task<ShaderPreprocessor> task, ES2ToES3Converter.ShaderType shaderType) throws IOException, CompileExceptionError {
         IResource in                          = task.input(0);
         ShaderPreprocessor shaderPreprocessor = task.getData();
         boolean isDebug                       = (this.project.hasOption("debug") || (this.project.option("variant", Bob.VARIANT_RELEASE) != Bob.VARIANT_RELEASE));

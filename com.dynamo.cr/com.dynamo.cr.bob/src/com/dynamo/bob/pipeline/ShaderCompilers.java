@@ -60,11 +60,13 @@ public class ShaderCompilers {
 
         ArrayList<ShaderProgramBuilder.ShaderBuildResult> shaderBuildResults = new ArrayList<ShaderProgramBuilder.ShaderBuildResult>();
 
+        byte[] spirvSource = ShaderCompilerHelpers.compileSPIRVFromGLSL(fullShaderSource, shaderType, resourceOutputPath);
+
         for (ShaderDesc.Language shaderLanguage : shaderLanguages) {
             if (shaderLanguage == ShaderDesc.Language.LANGUAGE_SPIRV) {
-                shaderBuildResults.add(ShaderCompilerHelpers.buildSpirvFromGLSL(fullShaderSource, shaderType, resourceOutputPath, spirvTargetProfile, isDebug, softFail));
+                shaderBuildResults.add(ShaderCompilerHelpers.crossCompileShaderFromSPIRV(spirvSource, shaderType, shaderLanguage, resourceOutputPath, spirvTargetProfile));
             } else {
-                shaderBuildResults.add(ShaderCompilerHelpers.buildGLSL(fullShaderSource, shaderType, shaderLanguage, isDebug));
+                shaderBuildResults.add(ShaderCompilerHelpers.crossCompileShaderFromSPIRV(spirvSource, shaderType, shaderLanguage, resourceOutputPath, spirvTargetProfile));
             }
         }
 

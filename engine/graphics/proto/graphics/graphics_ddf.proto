@@ -323,6 +323,31 @@ message ShaderDesc
         optional uint32         block_size    = 6;
     }
 
+    /*
+    // TODO
+    message Shader
+    {
+        required Language language              = 1;
+        optional bytes    source                = 2;
+        optional string   name                  = 3;
+        optional bool     variant_texture_array = 4 [default = false];
+    }
+
+    message ShaderReflection
+    {
+        repeated ResourceBinding  uniform_buffers = 1;
+        repeated ResourceBinding  storage_buffers = 2;
+        repeated ResourceBinding  textures        = 3;
+        repeated ResourceBinding  inputs          = 4;
+        repeated ResourceBinding  outputs         = 5;
+        repeated ResourceTypeInfo types           = 6;
+    }
+
+    repeated Shader shaders              = 1;
+    optional ShaderReflection reflection = 2;
+    optional ShaderClass shader_class    = 3;
+    */
+
     message Shader
     {
         required Language           language              = 1;
