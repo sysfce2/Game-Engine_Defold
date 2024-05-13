@@ -3,10 +3,10 @@
 // Copyright 2009-2014 Ragnar Svensson, Christian Murray
 // Licensed under the Defold License version 1.0 (the "License"); you may not use
 // this file except in compliance with the License.
-// 
+//
 // You may obtain a copy of the License, together with FAQs at
 // https://www.defold.com/license
-// 
+//
 // Unless required by applicable law or agreed to in writing, software distributed
 // under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
@@ -33,6 +33,7 @@ import java.net.HttpURLConnection;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URI;
+import java.nio.file.attribute.FileTime;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -54,11 +55,22 @@ import java.util.concurrent.ExecutionException;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
+import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
+import com.defold.extension.pipeline.ILuaTranspiler;
+import com.dynamo.bob.fs.ClassLoaderMountPoint;
+import com.dynamo.bob.fs.DefaultFileSystem;
+import com.dynamo.bob.fs.DefaultResource;
+import com.dynamo.bob.fs.FileSystemMountPoint;
+import com.dynamo.bob.fs.FileSystemWalker;
+import com.dynamo.bob.fs.IFileSystem;
+import com.dynamo.bob.fs.IResource;
+import com.dynamo.bob.fs.ZipMountPoint;
+import com.dynamo.bob.plugin.PluginScanner;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
@@ -79,15 +91,11 @@ import com.dynamo.bob.archive.publisher.ZipPublisher;
 import com.dynamo.bob.bundle.BundleHelper;
 import com.dynamo.bob.bundle.IBundler;
 import com.dynamo.bob.bundle.BundlerParams;
-import com.dynamo.bob.fs.ClassLoaderMountPoint;
-import com.dynamo.bob.fs.FileSystemWalker;
-import com.dynamo.bob.fs.IFileSystem;
-import com.dynamo.bob.fs.IResource;
-import com.dynamo.bob.fs.ZipMountPoint;
 import com.dynamo.bob.pipeline.ExtenderUtil;
 import com.dynamo.bob.pipeline.IShaderCompiler;
 import com.dynamo.bob.pipeline.ShaderCompilers;
 import com.dynamo.bob.pipeline.TextureGenerator;
+import com.dynamo.bob.plugin.IPlugin;
 import com.dynamo.bob.logging.Logger;
 import com.dynamo.bob.util.BobProjectProperties;
 import com.dynamo.bob.util.LibraryUtil;
@@ -145,6 +153,7 @@ public class Project {
 
     private TextureProfiles textureProfiles;
     private List<Class<? extends IBundler>> bundlerClasses = new ArrayList<>();
+    private Set<Class<? extends IPlugin>> pluginClasses = new HashSet<>();
     private ClassLoader classLoader = null;
 
     private List<Class<? extends IShaderCompiler>> shaderCompilerClasses = new ArrayList();
@@ -369,6 +378,13 @@ public class Project {
                         }
                     }
 
+                    if (IPlugin.class.isAssignableFrom(klass))
+                    {
+                        if (!klass.equals(IPlugin.class)) {
+                            pluginClasses.add( (Class<? extends IPlugin>) klass);
+                        }
+                    }
+
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
@@ -441,7 +457,7 @@ public class Project {
     /**
      * Create task from resource. Typically called from builder
      * that create intermediate output/input-files
-     * @param input input resource
+     * @param inputResource input resource
      * @return task
      * @throws CompileExceptionError
      */
@@ -458,7 +474,7 @@ public class Project {
     /**
      * Create task from resource with explicit builder.
      * Make sure that task is unique.
-     * @param input input resource
+     * @param inputResource input resource
      * @param builderClass class to build resource with
      * @return task
      * @throws CompileExceptionError
@@ -990,14 +1006,7 @@ public class Project {
 
         final String variant = appmanifestOptions.get("baseVariant");
 
-        List<String> defaultNames = platform.formatBinaryName("dmengine");
-        List<File> exes = new ArrayList<File>();
-        for (String name : defaultNames) {
-            File exe = new File(FilenameUtils.concat(buildDir.getAbsolutePath(), name));
-            exes.add(exe);
-        }
-
-        BundleHelper helper = new BundleHelper(this, platform, buildDir, variant);
+        BundleHelper helper = new BundleHelper(this, platform, buildDir, variant, null);
 
         List<ExtenderResource> allSource = ExtenderUtil.getExtensionSources(this, platform, appmanifestOptions);
 
@@ -1023,15 +1032,11 @@ public class Project {
 
         if (debugUploadZip) {
             File debugZip = new File(buildDir.getParent(), "upload.zip");
-            ZipOutputStream zipOut = null;
-            try {
-                zipOut = new ZipOutputStream(new FileOutputStream(debugZip));
+            try (ZipOutputStream zipOut = new ZipOutputStream(Files.newOutputStream(debugZip.toPath()))) {
                 ExtenderUtil.writeResourcesToZip(allSource, zipOut);
                 System.out.printf("Wrote debug upload zip file to: %s", debugZip);
             } catch (Exception e) {
                 throw new CompileExceptionError(String.format("Failed to write debug zip file to %s", debugZip), e);
-            } finally {
-                zipOut.close();
             }
         }
 
@@ -1048,7 +1053,7 @@ public class Project {
 
             cleanEngine(platform, buildDir);
 
-            BundleHelper.unzip(new FileInputStream(zip), buildDir.toPath());
+            BundleHelper.unzip(Files.newInputStream(zip.toPath()), buildDir.toPath());
         } catch (ConnectException e) {
             throw new CompileExceptionError(String.format("Failed to connect to %s: %s", serverURL, e.getMessage()), e);
         } catch (ExtenderClientException e) {
@@ -1064,8 +1069,6 @@ public class Project {
         final String libraryName = this.option("ne-output-name", "default");
 
         final String variant = appmanifestOptions.get("baseVariant");
-
-        BundleHelper helper = new BundleHelper(this, platform, buildDir, variant);
 
         // Located in the same place as the log file in the unpacked successful build
         File logFile = new File(buildDir, "log.txt");
@@ -1331,7 +1334,7 @@ public class Project {
     }
 
     private Future buildRemoteEngine(IProgress monitor, ExecutorService executor) {
-        Callable<Void> callable = new Callable<>() {
+        Callable<Void> callable = new Callable<Void>() {
             public Void call() throws Exception {
                 logInfo("Build Remote Engine...");
                 TimeProfiler.addMark("StartBuildRemoteEngine", "Build Remote Engine");
@@ -1375,6 +1378,137 @@ public class Project {
         return executor.submit(callable);
     }
 
+    private boolean getSpirvRequired() throws IOException, CompileExceptionError {
+        IResource appManifestResource = this.getResource("native_extension", "app_manifest", false);
+        if (appManifestResource != null && appManifestResource.exists()) {
+            Map<String, Object> yamlAppManifest = ExtenderUtil.readYaml(appManifestResource);
+            Map<String, Object> yamlPlatforms = (Map<String, Object>) yamlAppManifest.getOrDefault("platforms", null);
+
+            if (yamlPlatforms != null) {
+                String targetPlatform = this.getPlatform().toString();
+                Map<String, Object> yamlPlatform = (Map<String, Object>) yamlPlatforms.getOrDefault(targetPlatform, null);
+
+                if (yamlPlatform != null) {
+                    Map<String, Object> yamlPlatformContext = (Map<String, Object>) yamlPlatform.getOrDefault("context", null);
+
+                    if (yamlPlatformContext != null) {
+                        boolean vulkanSymbolFound = false;
+                        List<String> symbols = (List<String>) yamlPlatformContext.getOrDefault("symbols", new ArrayList<String>());
+
+                        for (String symbol : symbols) {
+                            if (symbol.equals("GraphicsAdapterVulkan")) {
+                                vulkanSymbolFound = true;
+                                break;
+                            }
+                        }
+
+                        return vulkanSymbolFound;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private void configurePreBuildProjectOptions() throws IOException, CompileExceptionError {
+        // Build spir-v either if:
+        //   1. If the user has specified explicitly to build or not to build with spir-v
+        //   2. The project has an app manifest with vulkan enabled
+        if (this.hasOption("debug-output-spirv")) {
+            this.setOption("output-spirv", this.option("debug-output-spirv", "false"));
+        } else {
+            this.setOption("output-spirv", getSpirvRequired() ? "true" : "false");
+        }
+    }
+
+    private void transpileLua(IProgress monitor) throws CompileExceptionError, IOException {
+        List<ILuaTranspiler> transpilers = PluginScanner.getOrCreatePlugins("com.defold.extension.pipeline", ILuaTranspiler.class);
+        if (transpilers != null) {
+            IProgress transpilerProgress = monitor.subProgress(1);
+            transpilerProgress.beginTask("Transpiling to Lua", 1);
+            for (ILuaTranspiler transpiler : transpilers) {
+                IResource buildFileResource = getResource(transpiler.getBuildFileResourcePath());
+                if (buildFileResource.exists()) {
+                    String ext = "." + transpiler.getSourceExt();
+                    List<IResource> sources = inputs.stream()
+                            .filter(s -> s.endsWith(ext))
+                            .map(this::getResource)
+                            .collect(Collectors.toList());
+                    if (!sources.isEmpty()) {
+                        // We transpile to lua from the project dir only if all the source code files exist on disc. Since
+                        // some source file may come as dependencies in zip archives, the transpiler will not be able to
+                        // transpile them. In this situation, we extract all source files to a temporary folder. Similar
+                        // logic is implemented in editor in editor.code.transpilers/produce-build-output function
+                        boolean useProjectDir = buildFileResource instanceof DefaultResource && sources.stream().allMatch(s -> s instanceof DefaultResource);
+                        File sourceDir;
+                        if (useProjectDir) {
+                            sourceDir = new File(rootDirectory);
+                        } else {
+                            sourceDir = Files.createTempDirectory("tr-" + transpiler.getClass().getSimpleName()).toFile();
+                            buildFileResource.getContent();
+                            File buildFile = new File(sourceDir, buildFileResource.getPath());
+                            Path buildFilePath = buildFile.toPath();
+                            Files.write(buildFilePath, buildFileResource.getContent());
+                            Files.setLastModifiedTime(buildFilePath, FileTime.fromMillis(buildFileResource.getLastModified()));
+                            for (IResource source : sources) {
+                                Path sourcePath = new File(sourceDir, source.getPath()).toPath();
+                                Files.write(sourcePath, source.getContent());
+                                Files.setLastModifiedTime(sourcePath, FileTime.fromMillis(source.getLastModified()));
+                            }
+                        }
+                        File outputDir = new File(rootDirectory, "build/tr/" + transpiler.getClass().getSimpleName());
+                        Files.createDirectories(outputDir.toPath());
+                        try {
+                            List<ILuaTranspiler.Issue> issues = transpiler.transpile(new File(getPluginsDirectory()), sourceDir, outputDir);
+                            List<ILuaTranspiler.Issue> errors = issues.stream().filter(issue -> issue.severity == ILuaTranspiler.Severity.ERROR).collect(Collectors.toList());
+                            if (!errors.isEmpty()) {
+                                MultipleCompileException exception = new MultipleCompileException("Transpilation failed", null);
+                                errors.forEach(issue -> exception.addIssue(issue.severity.ordinal(), getResource(issue.resourcePath), issue.message, issue.lineNumber));
+                                throw exception;
+                            } else {
+                                issues.forEach(issue -> {
+                                    Level level;
+                                    switch (issue.severity) {
+                                        case INFO:
+                                            level = Level.INFO;
+                                            break;
+                                        case WARNING:
+                                            level = Level.WARNING;
+                                            break;
+                                        default:
+                                            throw new IllegalStateException();
+                                    }
+                                    logger.log(level, issue.resourcePath + ":" + issue.lineNumber + ": " + issue.message);
+                                });
+                            }
+                            DefaultFileSystem fs = new DefaultFileSystem();
+                            fs.setRootDirectory(outputDir.toString());
+                            ArrayList<String> results = new ArrayList<>();
+                            fs.walk("", new FileSystemWalker() {
+                                @Override
+                                public void handleFile(String path, Collection<String> results) {
+                                    if (path.endsWith(".lua")) {
+                                        results.add(path);
+                                    }
+                                }
+                            }, results);
+                            inputs.addAll(results);
+                            fileSystem.addMountPoint(new FileSystemMountPoint(fileSystem, fs));
+                        } catch (Exception e) {
+                            throw new CompileExceptionError(buildFileResource, 1, "Transpilation failed", e);
+                        } finally {
+                            if (!useProjectDir) {
+                                FileUtils.deleteDirectory(sourceDir);
+                            }
+                        }
+                    }
+                }
+            }
+            transpilerProgress.done();
+        }
+    }
+
     private List<TaskResult> createAndRunTasks(IProgress monitor) throws IOException, CompileExceptionError {
         // Do early test if report files are writable before we start building
         boolean generateReport = this.hasOption("build-report") || this.hasOption("build-report-html");
@@ -1412,6 +1546,7 @@ public class Project {
         mrep.beginTask("Reading tasks...", 1);
         TimeProfiler.start("Create tasks");
         BundleHelper.throwIfCanceled(monitor);
+        configurePreBuildProjectOptions();
         pruneSources();
         createTasks();
         validateBuildResourceMapping();
@@ -1510,6 +1645,13 @@ public class Project {
             mrep.done();
         }
 
+        List<IPlugin> plugins = new ArrayList<>();
+        for (Class<? extends IPlugin> klass : pluginClasses) {
+            IPlugin plugin = klass.getConstructor().newInstance();
+            plugin.init(this);
+            plugins.add(plugin);
+        }
+
         loop:
         for (String command : commands) {
             BundleHelper.throwIfCanceled(monitor);
@@ -1522,6 +1664,15 @@ public class Project {
                     Future<Void> remoteBuildFuture = null;
                     // Get or build engine binary
                     boolean shouldBuildRemoteEngine = ExtenderUtil.hasNativeExtensions(this);
+                    boolean shouldBuildProject = shouldBuildEngine() && BundleHelper.isArchiveIncluded(this);
+
+                    if (shouldBuildProject) {
+                        // do this before buildRemoteEngine to prevent concurrent modification exception, since
+                        // lua transpilation adds new mounts with compiled Lua that buildRemoteEngine iterates over
+                        // when sending to extender
+                        transpileLua(monitor);
+                    }
+
                     if (shouldBuildRemoteEngine) {
                         remoteBuildFuture = buildRemoteEngine(monitor, executor);
                     }
@@ -1535,7 +1686,7 @@ public class Project {
                         }
                     }
 
-                    if (shouldBuildEngine() && BundleHelper.isArchiveIncluded(this)) {
+                    if (shouldBuildProject) {
                         result = createAndRunTasks(monitor);
                     }
 
@@ -1579,6 +1730,11 @@ public class Project {
             }
             TimeProfiler.stop();
         }
+
+        for (IPlugin plugin : plugins) {
+            plugin.exit(this);
+        }
+        plugins.clear();
 
         monitor.done();
         TimeProfiler.start("Save cache");

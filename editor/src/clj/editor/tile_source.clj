@@ -26,6 +26,7 @@
             [editor.gl.shader :as shader]
             [editor.gl.texture :as texture]
             [editor.gl.vertex :as vtx]
+            [editor.gl.vertex2 :as vtx2]
             [editor.graph-util :as gu]
             [editor.handler :as handler]
             [editor.image :as image]
@@ -74,6 +75,11 @@
    :wrap-t     gl/clamp})
 
 (vtx/defvertex pos-uv-vtx
+  (vec4 position)
+  (vec2 texcoord0)
+  (vec1 page_index))
+
+(vtx2/defvertex pos-uv-vtx2
   (vec4 position)
   (vec2 texcoord0)
   (vec1 page_index))
@@ -235,7 +241,7 @@
               (.glEnd gl)))))
 
       pass/overlay
-      (texture-set/render-animation-overlay gl render-args renderables n ->pos-uv-vtx tile-shader))))
+      (texture-set/render-animation-overlay gl render-args renderables n ->pos-uv-vtx2 tile-shader))))
 
 (g/defnk produce-animation-updatable
   [_node-id id anim-data]
@@ -1000,12 +1006,13 @@
 
 (defn register-resource-types [workspace]
   (resource-node/register-ddf-resource-type workspace
-                                    :ext ["tilesource" "tileset"]
-                                    :label "Tile Source"
-                                    :build-ext "t.texturesetc"
-                                    :node-type TileSourceNode
-                                    :ddf-type Tile$TileSet
-                                    :load-fn load-tile-source
-                                    :icon tile-source-icon
-                                    :view-types [:scene :text]
-                                    :view-opts {:scene {:tool-controller ToolController}}))
+    :ext ["tilesource" "tileset"]
+    :label "Tile Source"
+    :build-ext "t.texturesetc"
+    :node-type TileSourceNode
+    :ddf-type Tile$TileSet
+    :load-fn load-tile-source
+    :icon tile-source-icon
+    :icon-class :design
+    :view-types [:scene :text]
+    :view-opts {:scene {:tool-controller ToolController}}))

@@ -3,10 +3,10 @@
 // Copyright 2009-2014 Ragnar Svensson, Christian Murray
 // Licensed under the Defold License version 1.0 (the "License"); you may not use
 // this file except in compliance with the License.
-// 
+//
 // You may obtain a copy of the License, together with FAQs at
 // https://www.defold.com/license
-// 
+//
 // Unless required by applicable law or agreed to in writing, software distributed
 // under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
@@ -18,6 +18,7 @@
 #include <string.h> // For memset
 
 #include <dmsdk/dlib/vmath.h>
+#include <dlib/opaque_handle_container.h>
 
 #include <dlib/array.h>
 #include <dlib/message.h>
@@ -67,6 +68,7 @@ namespace dmRender
 
     struct MaterialAttribute
     {
+        dmhash_t m_ElementIds[4];
         int32_t  m_Location;
         uint16_t m_ValueIndex;
         uint16_t m_ValueCount;
@@ -234,9 +236,33 @@ namespace dmRender
         dmhash_t m_Tags[MAX_MATERIAL_TAG_COUNT];
     };
 
+    struct TextureBinding
+    {
+        dmhash_t             m_Samplerhash;
+        dmGraphics::HTexture m_Texture;
+    };
+
+    struct RenderCamera
+    {
+        dmMessage::URL   m_URL;
+        HOpaqueHandle    m_Handle;
+        dmVMath::Matrix4 m_View;
+        dmVMath::Matrix4 m_Projection;
+        dmVMath::Matrix4 m_ViewProjection;
+
+        // These are cached each update in case
+        // the camera data has changed and we need to update
+        // based on the new parameters
+        dmVMath::Point3  m_LastPosition;
+        dmVMath::Quat    m_LastRotation;
+
+        RenderCameraData m_Data;
+        uint8_t          m_UseFrustum : 1;
+        uint8_t          m_Dirty : 1;
+    };
+
     struct RenderContext
     {
-        dmGraphics::HTexture        m_Textures[RenderObject::MAX_TEXTURE_COUNT];
         DebugRenderer               m_DebugRenderer;
         TextContext                 m_TextContext;
         dmScript::HContext          m_ScriptContext;
@@ -250,25 +276,25 @@ namespace dmRender
         dmArray<uint32_t>           m_RenderListSortBuffer;
         dmArray<uint32_t>           m_RenderListSortIndices;
         dmArray<RenderListRange>    m_RenderListRanges;         // Maps tagmask to a range in the (sorted) render list
+        dmArray<TextureBinding>     m_TextureBindTable;
         dmhash_t                    m_FrustumHash;
 
         dmHashTable32<MaterialTagList>  m_MaterialTagLists;
 
-        HFontMap                    m_SystemFontMap;
+        dmOpaqueHandleContainer<RenderCamera> m_RenderCameras;
+        HRenderCamera                         m_CurrentRenderCamera; // When != 0, the renderer will use the matrices from this camera.
 
+        HFontMap                    m_SystemFontMap;
         Matrix4                     m_View;
         Matrix4                     m_Projection;
         Matrix4                     m_ViewProj;
-
         dmGraphics::HContext        m_GraphicsContext;
-
         HMaterial                   m_Material;
-
         dmMessage::HSocket          m_Socket;
-
-        uint32_t                    m_OutOfResources         : 1;
-        uint32_t                    m_StencilBufferCleared   : 1;
-        uint32_t                    m_MultiBufferingRequired : 1;
+        uint32_t                    m_OutOfResources                : 1;
+        uint32_t                    m_StencilBufferCleared          : 1;
+        uint32_t                    m_MultiBufferingRequired        : 1;
+        uint32_t                    m_CurrentRenderCameraUseFrustum : 1;
     };
 
     struct BufferedRenderBuffer
@@ -289,6 +315,8 @@ namespace dmRender
     void GetProgramUniformCount(dmGraphics::HProgram program, uint32_t total_constants_count, uint32_t* constant_count_out, uint32_t* samplers_count_out);
     void SetMaterialConstantValues(dmGraphics::HContext graphics_context, dmGraphics::HProgram program, uint32_t total_constants_count, dmHashTable64<dmGraphics::HUniformLocation>& name_hash_to_location, dmArray<RenderConstant>& constants, dmArray<Sampler>& samplers);
 
+    void FillElementIds(char* buffer, uint32_t buffer_size, dmhash_t element_ids[4]);
+
     // Return true if the predicate tags all exist in the material tag list
     bool                            MatchMaterialTags(uint32_t material_tag_count, const dmhash_t* material_tags, uint32_t tag_count, const dmhash_t* tags);
     // Returns a hashkey that the material can use to get the list
@@ -296,7 +324,14 @@ namespace dmRender
     // Gets the list associated with a hash of all the tags (see RegisterMaterialTagList)
     void                            GetMaterialTagList(HRenderContext context, uint32_t list_hash, MaterialTagList* list);
 
-    bool GetCanBindTexture(dmGraphics::HTexture texture, HSampler sampler, uint32_t unit);
+    void    SetTextureBindingByHash(dmRender::HRenderContext render_context, dmhash_t sampler_hash, dmGraphics::HTexture texture);
+    void    SetTextureBindingByUnit(dmRender::HRenderContext render_context, uint32_t unit, dmGraphics::HTexture texture);
+    bool    GetCanBindTexture(dmGraphics::HTexture texture, HSampler sampler, uint32_t unit);
+    int32_t GetMaterialSamplerIndex(HMaterial material, dmhash_t name_hash);
+
+    // Render camera
+    RenderCamera* GetRenderCameraByUrl(HRenderContext render_context, const dmMessage::URL& camera_url);
+    RenderCamera* CheckRenderCamera(lua_State* L, int index, HRenderContext render_context);
 
     // Exposed here for unit testing
     struct RenderListEntrySorter

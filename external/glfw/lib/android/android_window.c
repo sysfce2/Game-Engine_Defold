@@ -216,6 +216,11 @@ void _glfwPlatformSetWindowTitle( const char *title )
 
 void _glfwPlatformSetWindowSize( int width, int height )
 {
+    if (_glfwWin.opened && _glfwWin.clientAPI == GLFW_NO_API)
+    {
+        _glfwWin.width = width;
+        _glfwWin.height = height;
+    }
 }
 
 //========================================================================
@@ -472,7 +477,7 @@ void glfwAndroidPollEvents()
 
     int timeoutMillis = 0;
     if (_glfwWin.iconified) {
-        timeoutMillis = 1000 * 2;
+        timeoutMillis = 300;
     }
     while ((ident=ALooper_pollAll(timeoutMillis, NULL, &events, (void**)&source)) >= 0)
     {
