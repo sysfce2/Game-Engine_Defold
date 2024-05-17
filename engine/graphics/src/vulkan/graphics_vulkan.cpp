@@ -52,9 +52,9 @@ namespace dmGraphics
 
     static VulkanTexture* VulkanNewTextureInternal(const TextureCreationParams& params);
     static void           VulkanDeleteTextureInternal(VulkanTexture* texture);
-    static void           VulkanSetTextureInternal(VulkanContext* context, VulkanTexture* texture, const TextureParams& params);
+    static void           VulkanSetTextureInternal(VulkanContext* context, VulkanTexture* texture, const VkCommandPool& pool, const VkQueue& queue, const TextureParams& params);
     static void           VulkanSetTextureParamsInternal(VulkanTexture* texture, TextureFilter minfilter, TextureFilter magfilter, TextureWrap uwrap, TextureWrap vwrap, float max_anisotropy);
-    static void           CopyToTexture(VulkanContext* context, const TextureParams& params, bool useStageBuffer, uint32_t texDataSize, void* texDataPtr, VulkanTexture* textureOut);
+    static void           CopyToTexture(VulkanContext* context, const VkCommandPool& pool, const VkQueue& queue, const TextureParams& params, bool useStageBuffer, bool doTransitionToShaderRead, uint32_t texDataSize, void* texDataPtr, VulkanTexture* textureOut);
     static VkFormat       GetVulkanFormatFromTextureFormat(TextureFormat format);
 
     #define DM_VK_RESULT_TO_STR_CASE(x) case x: return #x
@@ -628,6 +628,15 @@ namespace dmGraphics
         // Create an additional single-time buffer for device uploading
         CreateCommandBuffers(vk_device, context->m_LogicalDevice.m_CommandPool, 1, &context->m_MainCommandBufferUploadHelper);
 
+        if (context->m_LogicalDevice.m_DedicatedTransferQueue)
+        {
+            // TODO: delete object(s)
+            res = CreateCommandBuffers(vk_device,
+                context->m_LogicalDevice.m_CommandPoolWorker,
+                1, &context->m_MainCommandBufferWorker);
+            CHECK_VK_ERROR(res);
+        }
+
         // Create main resources-to-destroy lists, one for each command buffer
         for (uint32_t i = 0; i < num_swap_chain_images; ++i)
         {
@@ -680,18 +689,18 @@ namespace dmGraphics
         default_texture_params.m_Format = TEXTURE_FORMAT_RGBA;
 
         context->m_DefaultTexture2D = VulkanNewTextureInternal(default_texture_creation_params);
-        VulkanSetTextureInternal(context, context->m_DefaultTexture2D, default_texture_params);
+        VulkanSetTextureInternal(context, context->m_DefaultTexture2D, g_VulkanContext->m_LogicalDevice.m_CommandPool, g_VulkanContext->m_LogicalDevice.m_GraphicsQueue, default_texture_params);
 
         default_texture_params.m_Format = TEXTURE_FORMAT_RGBA32UI;
         context->m_DefaultTexture2D32UI = VulkanNewTextureInternal(default_texture_creation_params);
-        VulkanSetTextureInternal(context, context->m_DefaultTexture2D32UI, default_texture_params);
+        VulkanSetTextureInternal(context, context->m_DefaultTexture2D32UI, g_VulkanContext->m_LogicalDevice.m_CommandPool, g_VulkanContext->m_LogicalDevice.m_GraphicsQueue, default_texture_params);
 
         default_texture_params.m_Format                 = TEXTURE_FORMAT_RGBA;
         default_texture_creation_params.m_Depth         = 1;
         default_texture_creation_params.m_Type          = TEXTURE_TYPE_IMAGE_2D;
         default_texture_creation_params.m_UsageHintBits = TEXTURE_USAGE_HINT_STORAGE;
         context->m_DefaultStorageImage2D                = VulkanNewTextureInternal(default_texture_creation_params);
-        VulkanSetTextureInternal(context, context->m_DefaultStorageImage2D, default_texture_params);
+        VulkanSetTextureInternal(context, context->m_DefaultStorageImage2D, g_VulkanContext->m_LogicalDevice.m_CommandPool, g_VulkanContext->m_LogicalDevice.m_GraphicsQueue, default_texture_params);
 
         default_texture_creation_params.m_UsageHintBits = TEXTURE_USAGE_HINT_SAMPLE;
         default_texture_creation_params.m_Type          = TEXTURE_TYPE_2D_ARRAY;
@@ -1361,7 +1370,7 @@ bail:
         // For now we skip the transform completely by setting the currentTransform = identity,
         // but that causes the presentation function to return a suboptimal result, which we don't care about right now.
         // A more "proper" way of doing this would be to actually use the preTransform values, but I don't know how it works.
-        res = vkQueuePresentKHR(context->m_LogicalDevice.m_PresentQueue, &vk_present_info);
+        res = vkQueuePresentKHR(context->m_LogicalDevice.m_GraphicsQueue, &vk_present_info);
         if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
         {
             CHECK_VK_ERROR(res);
@@ -3507,8 +3516,8 @@ bail:
         return offset;
     }
 
-    static void CopyToTexture(VulkanContext* context, const TextureParams& params,
-        bool useStageBuffer, uint32_t texDataSize, void* texDataPtr, VulkanTexture* textureOut)
+    static void CopyToTexture(VulkanContext* context, const VkCommandPool& pool, const VkQueue& queue,
+        const TextureParams& params, bool useStageBuffer, bool doTransitionToShaderRead, uint32_t texDataSize, void* texDataPtr, VulkanTexture* textureOut)
     {
         VkDevice vk_device = context->m_LogicalDevice.m_Device;
         uint8_t layer_count = textureOut->m_Depth;
@@ -3537,17 +3546,15 @@ bail:
 
             // Create one-time commandbuffer to carry the copy command
             VkCommandBuffer vk_command_buffer;
-            CreateCommandBuffers(vk_device, context->m_LogicalDevice.m_CommandPool, 1, &vk_command_buffer);
-            VkCommandBufferBeginInfo vk_command_buffer_begin_info;
-            memset(&vk_command_buffer_begin_info, 0, sizeof(VkCommandBufferBeginInfo));
+            CreateCommandBuffers(vk_device, pool, 1, &vk_command_buffer);
 
+            VkCommandBufferBeginInfo vk_command_buffer_begin_info = {};
             vk_command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
             vk_command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
             VkResult res = vkBeginCommandBuffer(vk_command_buffer, &vk_command_buffer_begin_info);
             CHECK_VK_ERROR(res);
 
-            VkSubmitInfo vk_submit_info;
-            memset(&vk_submit_info, 0, sizeof(vk_submit_info));
+            VkSubmitInfo vk_submit_info       = {};
             vk_submit_info.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
             vk_submit_info.commandBufferCount = 1;
             vk_submit_info.pCommandBuffers    = &vk_command_buffer;
@@ -3562,9 +3569,13 @@ bail:
             CHECK_VK_ERROR(res);
 
             // Transition image to transfer dst for the mipmap level we are uploading
-            res = TransitionImageLayout(vk_device, context->m_LogicalDevice.m_CommandPool, context->m_LogicalDevice.m_GraphicsQueue,
-                textureOut->m_Handle.m_Image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                params.m_MipMap, layer_count);
+            res = TransitionImageLayout(vk_device, pool, queue,
+                textureOut->m_Handle.m_Image,
+                VK_IMAGE_ASPECT_COLOR_BIT,
+                VK_IMAGE_LAYOUT_UNDEFINED,            // From
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, // To
+                params.m_MipMap,
+                layer_count);
             CHECK_VK_ERROR(res);
 
             // NOTE: We should check max layer count in the device properties!
@@ -3594,19 +3605,22 @@ bail:
             res = vkEndCommandBuffer(vk_command_buffer);
             CHECK_VK_ERROR(res);
 
-            res = vkQueueSubmit(context->m_LogicalDevice.m_GraphicsQueue, 1, &vk_submit_info, VK_NULL_HANDLE);
+            res = vkQueueSubmit(queue, 1, &vk_submit_info, VK_NULL_HANDLE);
             CHECK_VK_ERROR(res);
 
-            vkQueueWaitIdle(context->m_LogicalDevice.m_GraphicsQueue);
+            vkQueueWaitIdle(queue);
 
-            res = TransitionImageLayout(vk_device, context->m_LogicalDevice.m_CommandPool, context->m_LogicalDevice.m_GraphicsQueue,
-                textureOut->m_Handle.m_Image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                params.m_MipMap, layer_count);
-            CHECK_VK_ERROR(res);
+            if (doTransitionToShaderRead)
+            {
+                res = TransitionImageLayout(vk_device, pool, queue,
+                    textureOut->m_Handle.m_Image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    params.m_MipMap, layer_count);
+                CHECK_VK_ERROR(res);
+            }
 
             DestroyDeviceBuffer(vk_device, &stage_buffer.m_Handle);
 
-            vkFreeCommandBuffers(vk_device, context->m_LogicalDevice.m_CommandPool, 1, &vk_command_buffer);
+            vkFreeCommandBuffers(vk_device, pool, 1, &vk_command_buffer);
 
             delete[] vk_copy_regions;
         }
@@ -3617,13 +3631,18 @@ bail:
             VkResult res = WriteToDeviceBuffer(vk_device, texDataSize, write_offset, texDataPtr, &textureOut->m_DeviceBuffer);
             CHECK_VK_ERROR(res);
 
-            res = TransitionImageLayout(vk_device, context->m_LogicalDevice.m_CommandPool, context->m_LogicalDevice.m_GraphicsQueue, textureOut->m_Handle.m_Image,
-                VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, params.m_MipMap, layer_count);
+            res = TransitionImageLayout(vk_device, pool, queue,
+                textureOut->m_Handle.m_Image,
+                VK_IMAGE_ASPECT_COLOR_BIT,
+                VK_IMAGE_LAYOUT_UNDEFINED,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                params.m_MipMap,
+                layer_count);
             CHECK_VK_ERROR(res);
         }
     }
 
-    static void VulkanSetTextureInternal(VulkanContext* context, VulkanTexture* texture, const TextureParams& params)
+    static void VulkanSetTextureInternal(VulkanContext* context, VulkanTexture* texture, const VkCommandPool& pool, const VkQueue& queue, const TextureParams& params)
     {
         // Same as graphics_opengl.cpp
         switch (params.m_Format)
@@ -3708,6 +3727,7 @@ bail:
             }
         }
 
+        bool transition_to_shader_read = queue != context->m_LogicalDevice.m_TransferQueue;
         bool use_stage_buffer = true;
         bool memoryless = IsTextureMemoryless(texture);
 
@@ -3770,7 +3790,7 @@ bail:
         if (!memoryless)
         {
             tex_data_size = (int) ceil((float) tex_data_size / 8.0f);
-            CopyToTexture(context, params, use_stage_buffer, tex_data_size, tex_data_ptr, texture);
+            CopyToTexture(context, pool, queue, params, use_stage_buffer, transition_to_shader_read, tex_data_size, tex_data_ptr, texture);
         }
 
         if (format_orig == TEXTURE_FORMAT_RGB)
@@ -3837,17 +3857,114 @@ bail:
     static void VulkanSetTexture(HTexture texture, const TextureParams& params)
     {
         VulkanTexture* tex = GetAssetFromContainer<VulkanTexture>(g_VulkanContext->m_AssetHandleContainer, texture);
-        VulkanSetTextureInternal(g_VulkanContext, tex, params);
+        VulkanSetTextureInternal(g_VulkanContext, tex, g_VulkanContext->m_LogicalDevice.m_CommandPool, g_VulkanContext->m_LogicalDevice.m_GraphicsQueue, params);
     }
+
+    struct OneTimeCommandBuffer
+    {
+        OneTimeCommandBuffer(VulkanContext* context, bool use_transfer_queue = false)
+        : m_Context(context)
+        , m_UseTransferQueue(use_transfer_queue) {}
+
+        VkCommandBuffer Begin()
+        {
+            assert(m_Context != 0);
+
+            VkCommandBuffer vk_command_buffer;
+
+            if (m_UseTransferQueue)
+            {
+                CreateCommandBuffers(m_Context->m_LogicalDevice.m_Device, m_Context->m_LogicalDevice.m_CommandPoolWorker, 1, &vk_command_buffer);
+            }
+            else
+            {
+                CreateCommandBuffers(m_Context->m_LogicalDevice.m_Device, m_Context->m_LogicalDevice.m_CommandPool, 1, &vk_command_buffer);
+            }
+
+            VkCommandBufferBeginInfo vk_command_buffer_begin_info = {};
+            vk_command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            vk_command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+            VkResult res = vkBeginCommandBuffer(vk_command_buffer, &vk_command_buffer_begin_info);
+            CHECK_VK_ERROR(res);
+
+            m_CmdBuffer = vk_command_buffer;
+
+            return vk_command_buffer;
+        }
+
+        void End()
+        {
+            vkEndCommandBuffer(m_CmdBuffer);
+
+            VkSubmitInfo vk_submit_info = {};
+            vk_submit_info.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+            vk_submit_info.commandBufferCount = 1;
+            vk_submit_info.pCommandBuffers    = &m_CmdBuffer;
+
+            if (m_UseTransferQueue)
+            {
+                VkResult res = vkQueueSubmit(m_Context->m_LogicalDevice.m_TransferQueue, 1, &vk_submit_info, VK_NULL_HANDLE);
+                CHECK_VK_ERROR(res);
+                vkQueueWaitIdle(m_Context->m_LogicalDevice.m_TransferQueue); // TODO: Proper syncronization
+                vkFreeCommandBuffers(m_Context->m_LogicalDevice.m_Device, m_Context->m_LogicalDevice.m_CommandPoolWorker, 1, &m_CmdBuffer);
+            }
+            else
+            {
+                VkResult res = vkQueueSubmit(m_Context->m_LogicalDevice.m_GraphicsQueue, 1, &vk_submit_info, VK_NULL_HANDLE);
+                CHECK_VK_ERROR(res);
+                vkQueueWaitIdle(m_Context->m_LogicalDevice.m_GraphicsQueue); // TODO: Proper syncronization
+                vkFreeCommandBuffers(m_Context->m_LogicalDevice.m_Device, m_Context->m_LogicalDevice.m_CommandPool, 1, &m_CmdBuffer);
+            }
+
+            m_Context   = 0;
+            m_CmdBuffer = VK_NULL_HANDLE;
+        }
+
+        VulkanContext*  m_Context;
+        VkCommandBuffer m_CmdBuffer;
+        bool            m_UseTransferQueue;
+    };
 
     static int AsyncProcessCallback(void* _context, void* data)
     {
         VulkanContext* context     = (VulkanContext*) _context;
         uint16_t param_array_index = (uint16_t) (size_t) data;
         SetTextureAsyncParams ap   = GetSetTextureAsyncParams(context->m_SetTextureAsyncState, param_array_index);
-
         VulkanTexture* tex = GetAssetFromContainer<VulkanTexture>(context->m_AssetHandleContainer, ap.m_Texture);
-        VulkanSetTextureInternal(context, tex, ap.m_Params);
+
+        if (ap.m_Params.m_MipMap == 0)
+        {
+            VulkanSetTextureInternal(context, tex, context->m_LogicalDevice.m_CommandPoolWorker, context->m_LogicalDevice.m_TransferQueue, ap.m_Params);
+
+            if (context->m_LogicalDevice.m_DedicatedTransferQueue)
+            {
+                OneTimeCommandBuffer cmd_buffer(context, true);
+                VkCommandBuffer vk_command_buffer = cmd_buffer.Begin();
+
+                VkImageMemoryBarrier vk_memory_barrier = {};
+                vk_memory_barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+                vk_memory_barrier.oldLayout                       = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                vk_memory_barrier.newLayout                       = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                vk_memory_barrier.srcQueueFamilyIndex             = context->m_SwapChain->m_QueueFamily.m_TransferQueueIx;
+                vk_memory_barrier.dstQueueFamilyIndex             = context->m_SwapChain->m_QueueFamily.m_GraphicsQueueIx;
+                vk_memory_barrier.image                           = tex->m_Handle.m_Image;
+                vk_memory_barrier.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+                vk_memory_barrier.subresourceRange.baseMipLevel   = ap.m_Params.m_MipMap;
+                vk_memory_barrier.subresourceRange.levelCount     = 1;
+                vk_memory_barrier.subresourceRange.baseArrayLayer = 0;
+                vk_memory_barrier.subresourceRange.layerCount     = 1;
+
+                vk_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+                vkCmdPipelineBarrier(
+                    vk_command_buffer,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT,
+                    VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                    0, 0, 0, 0, 0, 1, &vk_memory_barrier);
+
+                cmd_buffer.End();
+            }
+        }
 
         tex->m_DataState  &= ~(1<<ap.m_Params.m_MipMap);
 
@@ -3859,14 +3976,52 @@ bail:
     {
         VulkanContext* context     = (VulkanContext*) _context;
         uint16_t param_array_index = (uint16_t) (size_t) data;
+        SetTextureAsyncParams ap   = GetSetTextureAsyncParams(context->m_SetTextureAsyncState, param_array_index);
+
+        if (ap.m_Params.m_MipMap == 0)
+        {
+            VulkanTexture* tex = GetAssetFromContainer<VulkanTexture>(context->m_AssetHandleContainer, ap.m_Texture);
+
+            if (context->m_LogicalDevice.m_DedicatedTransferQueue)
+            {
+                OneTimeCommandBuffer cmd_buffer(context);
+                VkCommandBuffer vk_command_buffer = cmd_buffer.Begin();
+
+                VkImageMemoryBarrier vk_memory_barrier = {};
+                vk_memory_barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+                vk_memory_barrier.oldLayout                       = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                vk_memory_barrier.newLayout                       = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                vk_memory_barrier.srcQueueFamilyIndex             = context->m_SwapChain->m_QueueFamily.m_TransferQueueIx;
+                vk_memory_barrier.dstQueueFamilyIndex             = context->m_SwapChain->m_QueueFamily.m_GraphicsQueueIx;
+                vk_memory_barrier.image                           = tex->m_Handle.m_Image;
+                vk_memory_barrier.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+                vk_memory_barrier.subresourceRange.baseMipLevel   = ap.m_Params.m_MipMap;
+                vk_memory_barrier.subresourceRange.levelCount     = 1;
+                vk_memory_barrier.subresourceRange.baseArrayLayer = 0;
+                vk_memory_barrier.subresourceRange.layerCount     = 1;
+
+                //vk_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                vk_memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+                vkCmdPipelineBarrier(
+                    vk_command_buffer,
+                    VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, // VK_PIPELINE_STAGE_TRANSFER_BIT,
+                    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                    0, 0, 0, 0, 0, 1, &vk_memory_barrier);
+
+                cmd_buffer.End();
+            }
+        }
+
         ReturnSetTextureAsyncIndex(context->m_SetTextureAsyncState, param_array_index);
     }
 
     static void VulkanSetTextureAsync(HTexture texture, const TextureParams& params, SetTextureAsyncCallback callback, void* user_data)
     {
+        VulkanTexture* tex = GetAssetFromContainer<VulkanTexture>(g_VulkanContext->m_AssetHandleContainer, texture);
+
         if (g_VulkanContext->m_AsyncProcessingSupport)
         {
-            VulkanTexture* tex         = GetAssetFromContainer<VulkanTexture>(g_VulkanContext->m_AssetHandleContainer, texture);
             tex->m_DataState          |= 1<<params.m_MipMap;
             uint16_t param_array_index = PushSetTextureAsyncState(g_VulkanContext->m_SetTextureAsyncState, texture, params, callback, user_data);
 
@@ -3878,7 +4033,7 @@ bail:
         }
         else
         {
-            VulkanSetTextureInternal(g_VulkanContext, tex, params);
+            VulkanSetTextureInternal(g_VulkanContext, tex, g_VulkanContext->m_LogicalDevice.m_CommandPool, g_VulkanContext->m_LogicalDevice.m_GraphicsQueue, params);
         }
     }
 
@@ -4184,54 +4339,6 @@ bail:
     {
         return g_VulkanContext;
     }
-
-    struct OneTimeCommandBuffer
-    {
-        OneTimeCommandBuffer(VulkanContext* context)
-        : m_Context(context) {}
-
-        VkCommandBuffer Begin()
-        {
-            assert(m_Context != 0);
-
-            VkCommandBuffer vk_command_buffer;
-            CreateCommandBuffers(m_Context->m_LogicalDevice.m_Device, m_Context->m_LogicalDevice.m_CommandPool, 1, &vk_command_buffer);
-            VkCommandBufferBeginInfo vk_command_buffer_begin_info;
-            memset(&vk_command_buffer_begin_info, 0, sizeof(VkCommandBufferBeginInfo));
-
-            vk_command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-            vk_command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-            VkResult res = vkBeginCommandBuffer(vk_command_buffer, &vk_command_buffer_begin_info);
-            CHECK_VK_ERROR(res);
-
-            m_CmdBuffer = vk_command_buffer;
-
-            return vk_command_buffer;
-        }
-
-        void End()
-        {
-            vkEndCommandBuffer(m_CmdBuffer);
-
-            VkSubmitInfo vk_submit_info = {};
-            vk_submit_info.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-            vk_submit_info.commandBufferCount = 1;
-            vk_submit_info.pCommandBuffers    = &m_CmdBuffer;
-
-            VkResult res = vkQueueSubmit(m_Context->m_LogicalDevice.m_GraphicsQueue, 1, &vk_submit_info, VK_NULL_HANDLE);
-            CHECK_VK_ERROR(res);
-
-            vkQueueWaitIdle(m_Context->m_LogicalDevice.m_GraphicsQueue); // TODO: Proper syncronization
-
-            vkFreeCommandBuffers(m_Context->m_LogicalDevice.m_Device, m_Context->m_LogicalDevice.m_CommandPool, 1, &m_CmdBuffer);
-
-            m_Context   = 0;
-            m_CmdBuffer = VK_NULL_HANDLE;
-        }
-
-        VulkanContext*  m_Context;
-        VkCommandBuffer m_CmdBuffer;
-    };
 
     void VulkanCopyBufferToTexture(HContext _context, HVertexBuffer _buffer, HTexture _texture, uint32_t width, uint32_t height)
     {

@@ -35,6 +35,7 @@ namespace dmGraphics
     const static uint8_t DM_RENDERTARGET_BACKBUFFER_ID = 0;
     const static uint8_t DM_MAX_FRAMES_IN_FLIGHT       = 2; // In flight frames - number of concurrent frames being processed
     const static uint8_t MAX_VERTEX_BUFFERS            = 2;
+    const static uint16_t QUEUE_FAMILY_INVALID         = 0xffff;
 
     enum VulkanResourceType
     {
@@ -219,14 +220,17 @@ namespace dmGraphics
     struct QueueFamily
     {
         QueueFamily()
-        : m_GraphicsQueueIx(0xffff)
-        , m_PresentQueueIx(0xffff)
+        : m_GraphicsQueueIx(QUEUE_FAMILY_INVALID)
+        , m_TransferQueueIx(QUEUE_FAMILY_INVALID)
         {}
 
         uint16_t m_GraphicsQueueIx;
-        uint16_t m_PresentQueueIx;
+        uint16_t m_TransferQueueIx;
 
-        bool IsValid() { return m_GraphicsQueueIx != 0xffff && m_PresentQueueIx != 0xffff; }
+        bool IsValid()
+        {
+            return m_GraphicsQueueIx != QUEUE_FAMILY_INVALID && m_TransferQueueIx != QUEUE_FAMILY_INVALID;
+        }
     };
 
     struct PhysicalDevice
@@ -246,9 +250,10 @@ namespace dmGraphics
     {
         VkDevice      m_Device;
         VkQueue       m_GraphicsQueue;
-        VkQueue       m_PresentQueue;
+        VkQueue       m_TransferQueue;
         VkCommandPool m_CommandPool;
         VkCommandPool m_CommandPoolWorker;
+        uint8_t       m_DedicatedTransferQueue : 1;
     };
 
     struct ShaderModule
@@ -378,6 +383,7 @@ namespace dmGraphics
         dmArray<VkFramebuffer>          m_MainFrameBuffers;
         dmArray<VkCommandBuffer>        m_MainCommandBuffers;
         VkCommandBuffer                 m_MainCommandBufferUploadHelper;
+        VkCommandBuffer                 m_MainCommandBufferWorker;
         ResourcesToDestroyList*         m_MainResourcesToDestroy[3];
         dmArray<ScratchBuffer>          m_MainScratchBuffers;
         dmArray<DescriptorAllocator>    m_MainDescriptorAllocators;
@@ -477,7 +483,7 @@ namespace dmGraphics
     VkSampleCountFlagBits GetClosestSampleCountFlag(PhysicalDevice* physicalDevice, uint32_t bufferFlagBits, uint8_t sampleCount);
 
     // Misc functions
-    VkResult TransitionImageLayout(VkDevice vk_device, VkCommandPool vk_command_pool, VkQueue vk_graphics_queue, VkImage vk_image, VkImageAspectFlags vk_image_aspect, VkImageLayout vk_from_layout, VkImageLayout vk_to_layout, uint32_t baseMipLevel = 0, uint32_t layer_count = 1);
+    VkResult TransitionImageLayout(VkDevice vk_device, VkCommandPool vk_command_pool, VkQueue vk_graphics_queue, VkImage vk_image, VkImageAspectFlags vk_image_aspect, VkImageLayout vk_from_layout, VkImageLayout vk_to_layout, uint32_t baseMipLevel = 0, uint32_t layer_count = 1, uint32_t src_q_index = VK_QUEUE_FAMILY_IGNORED, uint32_t dst_q_index = VK_QUEUE_FAMILY_IGNORED);
     VkResult WriteToDeviceBuffer(VkDevice vk_device, VkDeviceSize size, VkDeviceSize offset, const void* data, DeviceBuffer* buffer);
     void     DestroyPipelineCacheCb(VulkanContext* context, const uint64_t* key, Pipeline* value);
     void     FlushResourcesToDestroy(VkDevice vk_device, ResourcesToDestroyList* resource_list);

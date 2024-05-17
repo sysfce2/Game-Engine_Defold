@@ -172,23 +172,11 @@ namespace dmGraphics
         vk_swap_chain_create_info.imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
          // Move queue indices over to uint32_t array
-        uint32_t queue_family_indices[2] = {(uint32_t) swapChain->m_QueueFamily.m_GraphicsQueueIx, (uint32_t) swapChain->m_QueueFamily.m_PresentQueueIx};
+        uint32_t queue_family_indices[2] = {(uint32_t) swapChain->m_QueueFamily.m_GraphicsQueueIx, (uint32_t) swapChain->m_QueueFamily.m_TransferQueueIx};
 
-        // If we have different queues for the different types, we just stick with
-        // concurrent mode. An option here would be to do ownership transfers:
-        // https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#synchronization-queue-transfers
-        if (swapChain->m_QueueFamily.m_GraphicsQueueIx != swapChain->m_QueueFamily.m_PresentQueueIx)
-        {
-            vk_swap_chain_create_info.imageSharingMode      = VK_SHARING_MODE_CONCURRENT;
-            vk_swap_chain_create_info.queueFamilyIndexCount = 2;
-            vk_swap_chain_create_info.pQueueFamilyIndices   = queue_family_indices;
-        }
-        else
-        {
-            // This mode is best for performance and can be used with no penality
-            // if we are using the same queue for everything.
-            vk_swap_chain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        }
+        vk_swap_chain_create_info.queueFamilyIndexCount = 2;
+        vk_swap_chain_create_info.pQueueFamilyIndices   = queue_family_indices;
+        vk_swap_chain_create_info.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
 
         VkCompositeAlphaFlagBitsKHR vk_composite_alpha_flag_selected = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
         VkCompositeAlphaFlagBitsKHR vk_composite_alpha_flags[4] = {

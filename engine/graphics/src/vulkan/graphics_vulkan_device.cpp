@@ -434,28 +434,24 @@ namespace dmGraphics
 
     VkResult TransitionImageLayout(VkDevice vk_device, VkCommandPool vk_command_pool, VkQueue vk_graphics_queue, VkImage vk_image,
         VkImageAspectFlags vk_image_aspect, VkImageLayout vk_from_layout, VkImageLayout vk_to_layout,
-        uint32_t baseMipLevel, uint32_t layer_count)
+        uint32_t baseMipLevel, uint32_t layer_count, uint32_t src_q_index, uint32_t dst_q_index)
     {
         // Create a one-time-execute command buffer that will only be used for the transition
         VkCommandBuffer vk_command_buffer;
         CreateCommandBuffers(vk_device, vk_command_pool, 1, &vk_command_buffer);
 
-        VkCommandBufferBeginInfo vk_command_buffer_begin_info;
-        memset(&vk_command_buffer_begin_info, 0, sizeof(VkCommandBufferBeginInfo));
-
+        VkCommandBufferBeginInfo vk_command_buffer_begin_info = {};
         vk_command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         vk_command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
         vkBeginCommandBuffer(vk_command_buffer, &vk_command_buffer_begin_info);
 
-        VkImageMemoryBarrier vk_memory_barrier;
-        memset(&vk_memory_barrier, 0, sizeof(vk_memory_barrier));
-
+        VkImageMemoryBarrier vk_memory_barrier = {};
         vk_memory_barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
         vk_memory_barrier.oldLayout                       = vk_from_layout;
         vk_memory_barrier.newLayout                       = vk_to_layout;
-        vk_memory_barrier.srcQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
-        vk_memory_barrier.dstQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
+        vk_memory_barrier.srcQueueFamilyIndex             = src_q_index;
+        vk_memory_barrier.dstQueueFamilyIndex             = dst_q_index;
         vk_memory_barrier.image                           = vk_image;
         vk_memory_barrier.subresourceRange.aspectMask     = vk_image_aspect;
         vk_memory_barrier.subresourceRange.baseMipLevel   = baseMipLevel;
@@ -534,9 +530,7 @@ namespace dmGraphics
 
         vkEndCommandBuffer(vk_command_buffer);
 
-        VkSubmitInfo vk_submit_info;
-        memset(&vk_submit_info, 0, sizeof(VkSubmitInfo));
-
+        VkSubmitInfo vk_submit_info       = {};
         vk_submit_info.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         vk_submit_info.commandBufferCount = 1;
         vk_submit_info.pCommandBuffers    = &vk_command_buffer;
@@ -1445,8 +1439,6 @@ bail:
         }
     }
 
-    #define QUEUE_FAMILY_INVALID 0xffff
-
     // All GPU operations are pushed to various queues. The physical device can have multiple
     // queues with different properties supported, so we need to find a combination of queues
     // that will work for our needs. Note that the present queue might not be the same queue as the
@@ -1462,45 +1454,44 @@ bail:
             return qf;
         }
 
-        VkBool32* vk_present_queues = new VkBool32[device->m_QueueFamilyCount];
-
-        // Try to find a queue that has both graphics and present capabilities,
-        // and if we can't find one that has both, we take the first of each queue
-        // that we can find.
         for (uint32_t i = 0; i < device->m_QueueFamilyCount; ++i)
         {
-            QueueFamily candidate;
-            vkGetPhysicalDeviceSurfaceSupportKHR(device->m_Device, i, surface, vk_present_queues+i);
             VkQueueFamilyProperties vk_properties = device->m_QueueFamilyProperties[i];
 
-            if (vk_properties.queueCount > 0 && vk_properties.queueFlags & VK_QUEUE_GRAPHICS_BIT)
-            {
-                candidate.m_GraphicsQueueIx = i;
+            if (vk_properties.queueCount == 0)
+                continue;
 
-                if (qf.m_GraphicsQueueIx == QUEUE_FAMILY_INVALID)
+            bool has_graphics_flag = vk_properties.queueFlags & VK_QUEUE_GRAPHICS_BIT;
+            bool has_compute_flag  = vk_properties.queueFlags & VK_QUEUE_COMPUTE_BIT;
+            bool has_transfer_flag = vk_properties.queueFlags & VK_QUEUE_TRANSFER_BIT;
+
+            if (qf.m_GraphicsQueueIx == QUEUE_FAMILY_INVALID)
+            {
+                if (has_graphics_flag && has_compute_flag && has_transfer_flag)
                 {
                     qf.m_GraphicsQueueIx = i;
                 }
             }
 
-            if (vk_properties.queueCount > 0 && vk_present_queues[i])
+            // If a dedicated transfer queue exists, we will take it. This enables faster VMA copy
+            if (qf.m_TransferQueueIx == QUEUE_FAMILY_INVALID)
             {
-                candidate.m_PresentQueueIx = i;
-
-                if (qf.m_PresentQueueIx == QUEUE_FAMILY_INVALID)
+                if (has_transfer_flag && !has_compute_flag)
                 {
-                    qf.m_PresentQueueIx = i;
+                    qf.m_TransferQueueIx = i;
                 }
-            }
-
-            if (candidate.IsValid() && candidate.m_GraphicsQueueIx == candidate.m_PresentQueueIx)
-            {
-                qf = candidate;
-                break;
             }
         }
 
-        delete[] vk_present_queues;
+        assert(qf.m_GraphicsQueueIx != QUEUE_FAMILY_INVALID);
+
+        // If we don't have access to a specific transfer queue, we must use the graphics
+        // queue for both
+        if (qf.m_TransferQueueIx == QUEUE_FAMILY_INVALID)
+        {
+            qf.m_TransferQueueIx = qf.m_GraphicsQueueIx;
+        }
+
         return qf;
     }
 
@@ -1511,21 +1502,19 @@ bail:
     {
         assert(device);
 
-        // NOTE: Different queues can have different priority from [0..1], but
-        //       we only have a single queue right now so set to 1.0f
-        float queue_priority        = 1.0f;
-        int32_t queue_family_set[2] = { queueFamily.m_PresentQueueIx, QUEUE_FAMILY_INVALID };
-        int32_t queue_family_c      = 0;
+        float queue_priority         = 1.0f;
+        uint32_t queue_family_set[2] = { queueFamily.m_GraphicsQueueIx, QUEUE_FAMILY_INVALID };
+        int32_t queue_family_c       = 0;
 
-        VkDeviceQueueCreateInfo vk_device_queue_create_info[2];
-        memset(vk_device_queue_create_info, 0, sizeof(vk_device_queue_create_info));
+        VkDeviceQueueCreateInfo vk_device_queue_create_info[2] = {};
 
-        if (queueFamily.m_PresentQueueIx != queueFamily.m_GraphicsQueueIx)
+        bool use_transfer_queue = queueFamily.m_GraphicsQueueIx != queueFamily.m_TransferQueueIx;
+        if (use_transfer_queue)
         {
-            queue_family_set[1] = queueFamily.m_GraphicsQueueIx;
+            queue_family_set[1] = queueFamily.m_TransferQueueIx;
         }
 
-        while(queue_family_set[queue_family_c] != QUEUE_FAMILY_INVALID)
+        while(queue_family_set[queue_family_c] != QUEUE_FAMILY_INVALID && queue_family_c < DM_ARRAY_SIZE(queue_family_set))
         {
             int queue_family_index = queue_family_set[queue_family_c];
             VkDeviceQueueCreateInfo& vk_queue_create_info = vk_device_queue_create_info[queue_family_c];
@@ -1552,28 +1541,35 @@ bail:
         vk_device_create_info.ppEnabledLayerNames     = validationLayers;
 
         VkResult res = vkCreateDevice(device->m_Device, &vk_device_create_info, 0, &logicalDeviceOut->m_Device);
+        if (res != VK_SUCCESS)
+            return res;
 
-        if (res == VK_SUCCESS)
+        vkGetDeviceQueue(logicalDeviceOut->m_Device, queueFamily.m_GraphicsQueueIx, 0, &logicalDeviceOut->m_GraphicsQueue);
+
+        // Create main thread command pool
+        VkCommandPoolCreateInfo vk_create_pool_info = {};
+        vk_create_pool_info.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        vk_create_pool_info.queueFamilyIndex = queue_family_set[0];
+        vk_create_pool_info.flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        res = vkCreateCommandPool(logicalDeviceOut->m_Device, &vk_create_pool_info, 0, &logicalDeviceOut->m_CommandPool);
+        if (res != VK_SUCCESS)
+            return res;
+
+        if (use_transfer_queue)
         {
-            vkGetDeviceQueue(logicalDeviceOut->m_Device, queueFamily.m_GraphicsQueueIx, 0, &logicalDeviceOut->m_GraphicsQueue);
-            vkGetDeviceQueue(logicalDeviceOut->m_Device, queueFamily.m_PresentQueueIx, 0, &logicalDeviceOut->m_PresentQueue);
+            vkGetDeviceQueue(logicalDeviceOut->m_Device, queueFamily.m_TransferQueueIx, 0, &logicalDeviceOut->m_TransferQueue);
 
-            // Create command pool
-            VkCommandPoolCreateInfo vk_create_pool_info;
-            memset(&vk_create_pool_info, 0, sizeof(vk_create_pool_info));
-            vk_create_pool_info.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-            vk_create_pool_info.queueFamilyIndex = (uint32_t) queueFamily.m_GraphicsQueueIx;
-            vk_create_pool_info.flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-            res = vkCreateCommandPool(logicalDeviceOut->m_Device, &vk_create_pool_info, 0, &logicalDeviceOut->m_CommandPool);
-
-            if (res == VK_SUCCESS)
-            {
-                res = vkCreateCommandPool(logicalDeviceOut->m_Device, &vk_create_pool_info, 0, &logicalDeviceOut->m_CommandPoolWorker);
-            }
+            vk_create_pool_info.queueFamilyIndex = queue_family_set[1];
+            res = vkCreateCommandPool(logicalDeviceOut->m_Device, &vk_create_pool_info, 0, &logicalDeviceOut->m_CommandPoolWorker);
         }
+        else
+        {
+            logicalDeviceOut->m_TransferQueue     = logicalDeviceOut->m_GraphicsQueue;
+            logicalDeviceOut->m_CommandPoolWorker = logicalDeviceOut->m_CommandPool;
+        }
+
+        logicalDeviceOut->m_DedicatedTransferQueue = use_transfer_queue;
 
         return res;
     }
-
-    #undef QUEUE_FAMILY_INVALID
 }
